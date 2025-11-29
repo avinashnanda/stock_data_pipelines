@@ -1,5 +1,6 @@
+# html_scraper.py
 from io import StringIO
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import requests
@@ -39,10 +40,12 @@ def extract_summary(soup: BeautifulSoup) -> Dict[str, Optional[str]]:
     return summary
 
 
-def extract_table(soup: BeautifulSoup, header_text: str) -> pd.DataFrame:
+def _extract_table_df(soup: BeautifulSoup, header_text: str) -> pd.DataFrame:
     """
-    Find the table immediately following an h2/h3/h4 that contains header_text.
-    Normalize first column as 'Item' and drop fully-empty rows.
+    Internal helper:
+    - Finds table following header_text
+    - Parses via pandas
+    - Normalizes first column as 'Item'
     """
     heading = soup.find(
         lambda tag: tag.name in ["h2", "h3", "h4"]
@@ -60,7 +63,10 @@ def extract_table(soup: BeautifulSoup, header_text: str) -> pd.DataFrame:
     except Exception:
         return pd.DataFrame()
 
-    # Normalize first column name
+    if df.empty:
+        return df
+
+    # Normalize first column name to 'Item'
     first_col = df.columns[0]
     df.rename(columns={first_col: "Item"}, inplace=True)
 
@@ -71,6 +77,26 @@ def extract_table(soup: BeautifulSoup, header_text: str) -> pd.DataFrame:
     df["Item"] = df["Item"].astype(str).str.strip()
     df.reset_index(drop=True, inplace=True)
     return df
+
+
+def extract_table(soup: BeautifulSoup, header_text: str) -> List[Dict[str, Any]]:
+    """
+    Extract table as JSON-friendly list-of-dicts (wide format).
+
+    Example output:
+    [
+        { "Item": "Sales+", "Mar 2022": "10697", "Mar 2023": "12192", ... },
+        { "Item": "Expenses+", ... },
+        ...
+    ]
+
+    If table not found, returns [].
+    """
+    df = _extract_table_df(soup, header_text)
+    if df is None or df.empty:
+        return []
+    # DataFrame -> wide records, preserves column order
+    return df.to_dict(orient="records")
 
 
 def extract_pros_cons(soup: BeautifulSoup) -> Dict[str, List[str]]:
