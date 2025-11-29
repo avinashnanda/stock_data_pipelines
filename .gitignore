@@ -1,2 +1,5 @@
 *.db
 *_pycache_*
+test*
+*.venv
+*duckdb*

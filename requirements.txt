@@ -4,3 +4,4 @@ duckdb
 playwright
 ipykernel
 jupyter
+lmxl
