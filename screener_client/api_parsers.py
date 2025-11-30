@@ -1,219 +1,255 @@
-import json
-from typing import Any, Dict, Optional, Union, Tuple, List
-from io import StringIO
-
-import pandas as pd
+from typing import Any, Dict, Optional, Tuple, List
+from bs4 import BeautifulSoup
+from .helper import parse_numeric_value, period_to_date, maybe_number
 
 
-# ---------- Chart parser ----------
-
-def parse_screener_chart(raw: Union[str, Dict[str, Any]]) -> pd.DataFrame:
+def parse_screener_chart(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Parse Screener.in chart API response into a tidy DataFrame.
-
-    - One row per date
-    - One column per metric (Price, DMA50, EPS, etc)
-    - Optional 'Delivery' column from Volume dataset
+    Robust chart parser: handles extra dict metadata fields in values,
+    not just a single 'delivery' dict at index 2.
     """
-    try:
-        data = json.loads(raw) if isinstance(raw, str) else raw
-    except Exception:
-        return pd.DataFrame()
+    datasets = payload.get("datasets", []) or []
+    by_date: Dict[str, Dict[str, Any]] = {}
 
-    if not isinstance(data, dict) or "datasets" not in data:
-        return pd.DataFrame()
+    for ds in datasets:
+        metric_name = ds.get("metric") or ds.get("label") or "value"
+        values = ds.get("values", []) or []
 
-    records_by_date: Dict[str, Dict[str, Any]] = {}
-
-    for ds in data.get("datasets", []):
-        metric = ds.get("metric")
-        values = ds.get("values", [])
-        if not metric or not isinstance(values, list):
-            continue
-
-        for entry in values:
-            # Expected: [date, value] OR [date, value, {"delivery": x}]
-            if not isinstance(entry, list) or len(entry) < 2:
+        for pair in values:
+            if not isinstance(pair, (list, tuple)) or len(pair) < 2:
                 continue
 
-            date_str = entry[0]
-            value = entry[1]
+            date_str = pair[0]
+            if not date_str:
+                continue
 
-            if date_str not in records_by_date:
-                records_by_date[date_str] = {"Date": date_str}
+            row = by_date.setdefault(date_str, {"Date": date_str})
 
-            records_by_date[date_str][metric] = value
+            # Main value (index 1)
+            row[metric_name] = maybe_number(pair[1])
 
-            if len(entry) > 2 and isinstance(entry[2], dict):
-                delivery = entry[2].get("delivery")
-                if delivery is not None:
-                    records_by_date[date_str]["Delivery"] = delivery
+            # All additional dict fields from index >= 2
+            for idx in range(2, len(pair)):
+                if isinstance(pair[idx], dict):
+                    for extra_key, extra_val in pair[idx].items():
+                        col = f"{metric_name}_{extra_key}"
+                        row[col] = maybe_number(extra_val)
 
-    if not records_by_date:
-        return pd.DataFrame()
+    return [by_date[d] for d in sorted(by_date.keys())]
 
-    df = pd.DataFrame.from_dict(records_by_date, orient="index")
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df.sort_values("Date", inplace=True)
-    df.reset_index(drop=True, inplace=True)
-
-    for col in df.columns:
-        if col == "Date":
-            continue
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    return df
-
-
-# ---------- Schedules parser ----------
-
-def _parse_schedule_value(v: Any, percent_to_fraction: bool) -> Optional[float]:
-    if v is None:
-        return None
-
-    if isinstance(v, (int, float)):
-        return float(v)
-
-    if not isinstance(v, str):
-        return None
-
-    s = v.strip()
-    is_percent = s.endswith("%")
-    if is_percent:
-        s = s[:-1].strip()
-
-    if not s:
-        return None
-
-    try:
-        num = float(s)
-    except ValueError:
-        return None
-
-    if is_percent and percent_to_fraction:
-        num = num / 100.0
-
-    return num
 
 
 def parse_screener_schedule(
-    raw: Union[str, Dict[str, Dict[str, str]]],
+    payload: Dict[str, Dict[str, Any]],
     *,
     percent_to_fraction: bool = False,
-) -> pd.DataFrame:
+) -> List[Dict[str, Any]]:
     """
-    Parse Screener.in /schedules API (Expenses, Other Income, etc) into a DataFrame.
+    Parse Screener schedule API JSON into a list-of-dicts.
 
-    Output:
-      Period (string), Date (datetime), one column per metric.
+    Examples of payloads you showed:
+
+    1) Single metric:
+       {
+         "Sales Growth %": {
+           "Mar 2014": "9.43%",
+           "Mar 2015": "-2.09%",
+           ...
+         }
+       }
+
+    2) Multiple metrics:
+       {
+         "Exceptional items": {
+           "Mar 2014": "20",
+           ...
+         },
+         "Other income normal": {
+           "Mar 2014": "71",
+           ...
+         }
+       }
+
+    Output (for example 2):
+      [
+        {
+          "Period": "Mar 2014",
+          "Date": "2014-03-01",
+          "Exceptional items": 20.0,
+          "Other income normal": 71.0,
+        },
+        ...
+      ]
     """
-    try:
-        data = json.loads(raw) if isinstance(raw, str) else raw
-    except Exception:
-        return pd.DataFrame()
 
-    if not isinstance(data, dict) or not data:
-        return pd.DataFrame()
+    if not payload:
+        return []
 
-    periods: set[str] = set()
-    for series in data.values():
-        if isinstance(series, dict):
-            periods.update(series.keys())
+    # Keep metric order as in the payload dict
+    metrics = list(payload.items())  # [(metric_name, {period: value, ...}), ...]
 
-    if not periods:
-        return pd.DataFrame()
+    # Use the first metric to define period order
+    first_metric_name, first_series = metrics[0]
+    if not isinstance(first_series, dict):
+        return []
 
-    records_by_period: Dict[str, Dict[str, Any]] = {
-        p: {"Period": p} for p in periods
-    }
+    periods = list(first_series.keys())  # preserve order from API
 
-    for metric, series in data.items():
-        if not isinstance(series, dict):
+    rows: List[Dict[str, Any]] = []
+
+    for period in periods:
+        row: Dict[str, Any] = {"Period": period}
+        date_str = period_to_date(period)
+        if date_str is not None:
+            row["Date"] = date_str
+
+        for metric_name, series in metrics:
+            if not isinstance(series, dict):
+                continue
+            raw_val = series.get(period)
+            val = parse_numeric_value(raw_val, percent_to_fraction=percent_to_fraction)
+            # you can decide whether to keep NaNs or skip;
+            # here we include them as None to keep the column present
+            row[metric_name] = val
+
+        rows.append(row)
+
+    return rows
+
+
+def _parse_html_peers_table(
+    html: str,
+) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """
+    Parse peers HTML table into (rows, median_info).
+    rows: list[dict] for each company
+    median_info: dict for 'Median: ...' row if present, else None
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table")
+    if not table:
+        return [], None
+
+    # Header row
+    header_cells = table.find("thead")
+    headers: List[str] = []
+    if header_cells:
+        tr = header_cells.find("tr")
+        if tr:
+            headers = [th.get_text(strip=True) for th in tr.find_all(["th", "td"])]
+    else:
+        # Fallback: use first row of tbody as header
+        first_tr = table.find("tr")
+        if first_tr:
+            headers = [
+                th.get_text(strip=True) for th in first_tr.find_all(["th", "td"])
+            ]
+            first_tr.extract()
+
+    rows: List[Dict[str, Any]] = []
+    median_info: Optional[Dict[str, Any]] = None
+
+    # Data rows
+    for tr in table.find_all("tr"):
+        cells = tr.find_all("td")
+        if not cells:
             continue
 
-        for period, value in series.items():
-            if period not in records_by_period:
-                records_by_period[period] = {"Period": period}
-            records_by_period[period][metric] = _parse_schedule_value(
-                value, percent_to_fraction=percent_to_fraction
-            )
+        values = [c.get_text(strip=True) for c in cells]
+        # pad / trim to header length
+        if len(values) < len(headers):
+            values += [""] * (len(headers) - len(values))
+        elif len(values) > len(headers):
+            values = values[: len(headers)]
 
-    df = pd.DataFrame.from_dict(records_by_period, orient="index")
-    df["Date"] = pd.to_datetime(df["Period"], format="%b %Y", errors="coerce")
-    df.sort_values("Date", inplace=True)
-    df.reset_index(drop=True, inplace=True)
+        row_dict: Dict[str, Any] = dict(zip(headers, values))
 
-    return df
+        # Detect Median row
+        first_col_name = headers[0] if headers else None
+        first_val = row_dict.get(first_col_name) if first_col_name else ""
+        if isinstance(first_val, str) and first_val.startswith("Median:"):
+            # store raw median row with numeric conversion applied where possible
+            median_info = {k: maybe_number(v) for k, v in row_dict.items()}
+            continue
+
+        # Convert numeric-looking values
+        for k, v in list(row_dict.items()):
+            row_dict[k] = maybe_number(v)
+
+        rows.append(row_dict)
+
+    return rows, median_info
 
 
-# ---------- Peers API parser ----------
-
-
-def parse_peers_api(text: str) -> Tuple[pd.DataFrame, Optional[Dict[str, Any]]]:
+def _parse_tsv_peers(
+    text: str,
+) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """
-    Parse /peers/ API HTML/text into a DataFrame and an optional 'median' row.
-    - Supports HTML tables and fallback TSV format.
+    Fallback parser for TSV-like plaintext peers table.
+    """
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return [], None
+
+    header = [h.strip() for h in lines[0].split("\t")]
+    rows: List[Dict[str, Any]] = []
+    median_info: Optional[Dict[str, Any]] = None
+
+    for line in lines[1:]:
+        parts = [p.strip() for p in line.split("\t")]
+        if not parts:
+            continue
+
+        # Detect median row
+        if parts[0].startswith("Median:"):
+            # Normalize length
+            if len(parts) < len(header):
+                parts += [""] * (len(header) - len(parts))
+            elif len(parts) > len(header):
+                parts = parts[: len(header)]
+            median_raw = dict(zip(header, parts))
+            median_info = {k: maybe_number(v) for k, v in median_raw.items()}
+            continue
+
+        # Normalize length
+        if len(parts) < len(header):
+            parts += [""] * (len(header) - len(parts))
+        elif len(parts) > len(header):
+            parts = parts[: len(header)]
+
+        row = dict(zip(header, parts))
+        # numeric conversion
+        for k, v in list(row.items()):
+            row[k] = maybe_number(v)
+
+        rows.append(row)
+
+    return rows, median_info
+
+
+def parse_peers_api(text: str) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """
+    Parse /peers/ API HTML/text into:
+      - rows: list[dict] for each peer company
+      - median_info: dict for the 'Median: ...' row, if present
+
+    Works for:
+      - HTML table from Screener
+      - TSV-like plain text as fallback
+
+    No pandas used anywhere.
     """
     text = text.strip()
     if not text:
-        return pd.DataFrame(), None
+        return [], None
 
-    median_info: Optional[Dict[str, Any]] = None
-
-    # Attempt: HTML table
+    # HTML path
     if "<table" in text.lower():
         try:
-            df_list = pd.read_html(StringIO(text))
-            if df_list:
-                df = df_list[0]
-
-                # Extract & remove Median: row if present
-                first_col = df.columns[0]
-                median_mask = df[first_col].astype(str).str.startswith("Median:")
-                if median_mask.any():
-                    median_row = df[median_mask].iloc[0]
-                    median_info = median_row.to_dict()
-                    df = df[~median_mask].reset_index(drop=True)
-
-                # Clean column names
-                df.columns = [str(c).strip().replace("\n", " ") for c in df.columns]
-
-                # Convert numeric columns where possible
-                for col in df.columns:
-                    try:
-                        df[col] = pd.to_numeric(df[col])
-                    except Exception:
-                        pass
-
-                return df, median_info
-
+            return _parse_html_peers_table(text)
         except Exception:
+            # fall back to TSV-style if HTML parsing fails for some reason
             pass
 
-    # Fallback: TSV-style plaintext
-    lines = [ln for ln in text.splitlines() if ln.strip()]
-    if not lines:
-        return pd.DataFrame(), None
-
-    header = [h.strip() for h in lines[0].split("\t")]
-    data_rows: List[List[str]] = []
-
-    for line in lines[1:]:
-        parts = line.split("\t")
-
-        if parts[0].startswith("Median:"):
-            median_info = {"raw": line, "columns": parts}
-            continue
-
-        # Normalize missing values
-        if len(parts) < len(header):
-            parts += [""] * (len(header) - len(parts))
-        else:
-            parts = parts[:len(header)]
-
-        data_rows.append([p.strip() for p in parts])
-
-    df = pd.DataFrame(data_rows, columns=header)
-    return df, median_info
-
-
+    # TSV-style plaintext path
+    return _parse_tsv_peers(text)

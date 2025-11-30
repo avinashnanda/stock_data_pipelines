@@ -4,16 +4,30 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import requests
+import httpx
 from bs4 import BeautifulSoup
 
 from .config import HEADERS, REQUEST_TIMEOUT
 
 
 def get_soup(url: str) -> BeautifulSoup:
-    """Fetch a URL and return a BeautifulSoup object."""
+    """Fetch a URL and return a BeautifulSoup object (synchronous)."""
     resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
     return BeautifulSoup(resp.text, "html.parser")
+
+
+async def async_get_soup(url: str) -> BeautifulSoup:
+    """
+    Async version of get_soup using httpx.AsyncClient.
+
+    Use this in async code (like fetch_all_data) so the HTML fetch
+    does not block the event loop.
+    """
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+        return BeautifulSoup(resp.text, "html.parser")
 
 
 def extract_summary(soup: BeautifulSoup) -> Dict[str, Optional[str]]:
@@ -95,7 +109,6 @@ def extract_table(soup: BeautifulSoup, header_text: str) -> List[Dict[str, Any]]
     df = _extract_table_df(soup, header_text)
     if df is None or df.empty:
         return []
-    # DataFrame -> wide records, preserves column order
     return df.to_dict(orient="records")
 
 
@@ -128,16 +141,9 @@ def extract_about(soup: BeautifulSoup) -> str:
 def extract_company_and_warehouse(
     soup: BeautifulSoup,
 ) -> Tuple[Optional[str], Optional[str]]:
-    """
-    Extract Screener company_id and warehouse_id from the main page.
+    company_div = soup.find("div", attrs={"data-company-id": True})
+    warehouse_div = soup.find("div", attrs={"data-warehouse-id": True})
 
-    Returns:
-        (company_id, warehouse_id) as strings, or (None, None) if not found.
-    """
-    div = soup.find("div", attrs={"data-company-id": True, "data-warehouse-id": True})
-    if not div:
-        return None, None
-
-    company_id = div.get("data-company-id")
-    warehouse_id = div.get("data-warehouse-id")
+    company_id = company_div.get("data-company-id") if company_div else None
+    warehouse_id = warehouse_div.get("data-warehouse-id") if warehouse_div else None
     return company_id, warehouse_id

@@ -8,4 +8,3 @@ HEADERS: Dict[str, str] = {
 }
 
 REQUEST_TIMEOUT = 15  # seconds for HTTP requests
-PLAYWRIGHT_TIMEOUT = 60000  # ms (kept in case you add Playwright later)
