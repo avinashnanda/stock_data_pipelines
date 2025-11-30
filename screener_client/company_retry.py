@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Dict
 
-from .fetch import fetch_all_data
+import httpx
 
+from .fetch import fetch_all_data
 
 # These are the schedule keys you consider "must-have"
 IMPORTANT_SCHEDULE_KEYS = [
@@ -39,6 +40,19 @@ def _has_missing_important_schedules(schedules: Dict[str, list[dict]]) -> bool:
     return False
 
 
+def _is_unrecoverable(e: Exception) -> bool:
+    """
+    Return True if we should NOT retry this error.
+    - 404: invalid symbol/company page
+    - 400/403: likely bad request or forbidden (not rate limit)
+    """
+    if isinstance(e, httpx.HTTPStatusError):
+        status = e.response.status_code
+        if status in (400, 403, 404):
+            return True
+    return False
+
+
 async def scrape_company_with_retries(
     url: str,
     *,
@@ -48,6 +62,10 @@ async def scrape_company_with_retries(
     """
     Fetch full data for a company URL, retrying the whole company
     if some important schedules are missing (likely due to 429s).
+
+    Special case:
+      - If we hit an unrecoverable HTTP error (e.g. 404),
+        we immediately record the failure in the DB and skip retries.
 
     On final failure (exceptions or still-missing schedules), records
     the failure in the database via db.db_utils.mark_failed_company.
@@ -65,10 +83,31 @@ async def scrape_company_with_retries(
         try:
             data = await fetch_all_data(url)
         except Exception as e:
-            # Hard failure: network, parsing, etc.
+            # Hard failure: network, parsing, HTTP error, etc.
             last_exception = e
             print(f"❌ fetch_all_data failed for {url}: {e!r}")
 
+            # If it's an unrecoverable error (e.g. 404), don't retry; mark failed immediately.
+            if _is_unrecoverable(e):
+                try:
+                    from db.db_utils import mark_failed_company  # local import to avoid circulars
+                except ImportError:
+                    print(
+                        "⚠️ Could not import db.db_utils.mark_failed_company; "
+                        "unrecoverable failure will not be persisted to DB."
+                    )
+                    return None
+
+                reason = f"Unrecoverable HTTP error: {e!r}"
+                # We don't have meta/data in this path, so company_id is unknown (None)
+                mark_failed_company(None, url, reason)
+                print(
+                    f"📦 Recorded unrecoverable failed company in DB for {url} "
+                    f"(company_id=None)"
+                )
+                return None
+
+            # Otherwise, treat as recoverable (e.g. 429, transient issues)
             if attempt < max_attempts:
                 print(
                     f"⚠️ Will retry {url} in {delay_between_attempts}s "

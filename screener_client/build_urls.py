@@ -47,3 +47,11 @@ def build_peers_url(warehouse_id: str | int) -> str:
     Build Screener /peers/ API URL (uses warehouse_id).
     """
     return f"https://www.screener.in/api/company/{warehouse_id}/peers/"
+
+def screener_url_from_symbol(symbol: str) -> str:
+    """
+    Build Screener URL directly from stock symbol.
+    Example: RELIANCE → https://www.screener.in/company/RELIANCE/
+    """
+    sym = symbol.strip().upper()
+    return f"https://www.screener.in/company/{sym}/"

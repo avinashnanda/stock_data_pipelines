@@ -5,3 +5,5 @@ playwright
 ipykernel
 jupyter
 lmxl
+openpyxl
+tqdm

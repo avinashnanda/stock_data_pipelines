@@ -3,6 +3,7 @@
 import json
 from datetime import datetime
 import duckdb
+from typing import Any, Dict, Optional
 
 DB_FILE = "db/screener_financials.duckdb"
 
@@ -48,13 +49,27 @@ def upsert_company(company_id, warehouse_id, name, url):
     con.close()
 
 
-def mark_failed_company(company_id, url, reason):
+
+def mark_failed_company(
+    company_id: Optional[str],
+    source_url: str,
+    failure_reason: str,
+) -> None:
+    """
+    Insert a row into failed_companies.
+    company_id can be None if we never reached the point of extracting it.
+    """
     con = get_connection()
     con.execute(
         """
         INSERT INTO failed_companies (company_id, source_url, failure_reason, last_attempt)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, ?)
         """,
-        [company_id, url, reason],
+        [
+            company_id,
+            source_url,
+            failure_reason,
+            datetime.utcnow(),
+        ],
     )
     con.close()
