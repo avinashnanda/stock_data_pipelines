@@ -5,3 +5,5 @@ test*
 *duckdb*
 *json
 *.csv
+*logs*
+*nse_bhavcopy*
