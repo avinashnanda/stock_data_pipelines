@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import httpx
 
 from .fetch import fetch_all_data
 
-# These are the schedule keys you consider "must-have"
+# These are the schedule keys you consider "nice-to-have" (we'll only WARN on them now).
 IMPORTANT_SCHEDULE_KEYS = [
     "sales_quarterly",
     "expenses_quarterly",
@@ -33,6 +33,7 @@ IMPORTANT_SCHEDULE_KEYS = [
 def _has_missing_important_schedules(schedules: Dict[str, list[dict]]) -> bool:
     """
     Return True if any important schedule key is missing OR has an empty list.
+    Used now only for logging / diagnostics, not for re-scraping the whole company.
     """
     for key in IMPORTANT_SCHEDULE_KEYS:
         if key not in schedules or not schedules[key]:
@@ -43,8 +44,10 @@ def _has_missing_important_schedules(schedules: Dict[str, list[dict]]) -> bool:
 def _is_unrecoverable(e: Exception) -> bool:
     """
     Return True if we should NOT retry this error.
-    - 404: invalid symbol/company page
-    - 400/403: likely bad request or forbidden (not rate limit)
+
+    We treat 400 / 403 / 404 as unrecoverable:
+      - 404 => symbol/company does not exist on Screener
+      - 400/403 => bad request or forbidden (often not fixed by retry)
     """
     if isinstance(e, httpx.HTTPStatusError):
         status = e.response.status_code
@@ -56,26 +59,36 @@ def _is_unrecoverable(e: Exception) -> bool:
 async def scrape_company_with_retries(
     url: str,
     *,
-    max_attempts: int = 5,
+    max_attempts: int = 3,          # smaller, because we only retry on hard failures
     delay_between_attempts: float = 30.0,
 ) -> Dict[str, Any] | None:
     """
-    Fetch full data for a company URL, retrying the whole company
-    if some important schedules are missing (likely due to 429s).
+    Fetch full data for a company URL.
 
-    Special case:
-      - If we hit an unrecoverable HTTP error (e.g. 404),
-        we immediately record the failure in the DB and skip retries.
-
-    On final failure (exceptions or still-missing schedules), records
-    the failure in the database via db.db_utils.mark_failed_company.
+    Behaviour:
+      - If fetch_all_data raises an unrecoverable HTTP error (400/403/404):
+          -> record failure once, do NOT retry.
+      - If fetch_all_data raises a recoverable error (e.g., 429/5xx/network):
+          -> retry up to max_attempts with delay_between_attempts.
+      - If fetch_all_data returns data (even with some schedules missing):
+          -> accept the data as-is, log a warning if schedules are missing,
+             and DO NOT re-scrape the whole company.
 
     Returns:
-        - dict with full data on success
+        - dict with full data on success (possibly partial schedules)
         - None on final failure
     """
-    last_exception: Exception | None = None
-    last_data: Dict[str, Any] | None = None
+    last_exception: Optional[Exception] = None
+
+    # Import here to avoid circular imports
+    try:
+        from db.db_utils import mark_failed_company
+    except ImportError:
+        mark_failed_company = None  # type: ignore
+        print(
+            "⚠️ Could not import db.db_utils.mark_failed_company; "
+            "failures will not be persisted to DB."
+        )
 
     for attempt in range(1, max_attempts + 1):
         print(f"🏢 Scraping {url} (attempt {attempt}/{max_attempts})")
@@ -83,31 +96,19 @@ async def scrape_company_with_retries(
         try:
             data = await fetch_all_data(url)
         except Exception as e:
-            # Hard failure: network, parsing, HTTP error, etc.
             last_exception = e
             print(f"❌ fetch_all_data failed for {url}: {e!r}")
 
-            # If it's an unrecoverable error (e.g. 404), don't retry; mark failed immediately.
+            # Unrecoverable HTTP cases: don't bother retrying.
             if _is_unrecoverable(e):
-                try:
-                    from db.db_utils import mark_failed_company  # local import to avoid circulars
-                except ImportError:
-                    print(
-                        "⚠️ Could not import db.db_utils.mark_failed_company; "
-                        "unrecoverable failure will not be persisted to DB."
-                    )
-                    return None
-
                 reason = f"Unrecoverable HTTP error: {e!r}"
-                # We don't have meta/data in this path, so company_id is unknown (None)
-                mark_failed_company(None, url, reason)
-                print(
-                    f"📦 Recorded unrecoverable failed company in DB for {url} "
-                    f"(company_id=None)"
-                )
+                print(f"⛔ Unrecoverable for {url}, not retrying. Reason: {reason}")
+                if mark_failed_company is not None:
+                    mark_failed_company(None, url, reason)
+                    print(f"📦 Recorded failed company in DB for {url} (company_id=None)")
                 return None
 
-            # Otherwise, treat as recoverable (e.g. 429, transient issues)
+            # Recoverable case (429/5xx/network): retry a few times then give up.
             if attempt < max_attempts:
                 print(
                     f"⚠️ Will retry {url} in {delay_between_attempts}s "
@@ -116,52 +117,32 @@ async def scrape_company_with_retries(
                 await asyncio.sleep(delay_between_attempts)
                 continue
             else:
-                break  # exit loop, will mark failure below
+                break  # exit loop and mark failure below
 
-        # If we got here, we have some data
-        last_data = data
+        # If we got here, fetch_all_data returned some data; we accept it even if partial.
         schedules = data.get("schedules", {}) or {}
-
-        if not _has_missing_important_schedules(schedules):
-            print(f"✅ Successfully scraped {url} with all important schedules")
-            return data
-
-        # We have data but some important schedules are missing/empty
-        if attempt < max_attempts:
+        if _has_missing_important_schedules(schedules):
             print(
-                f"⚠️ {url}: some important schedules missing/empty; "
-                f"waiting {delay_between_attempts}s before retrying..."
+                f"⚠️ {url}: some important schedules are missing/empty. "
+                "Accepting partial data to avoid more 429s."
             )
-            await asyncio.sleep(delay_between_attempts)
-            continue
         else:
-            # No more attempts left
-            break
+            print(f"✅ Successfully scraped {url} with all important schedules")
 
-    # If we reach here, all attempts failed one way or another.
-    # Record the failure in the DB.
-    try:
-        from db.db_utils import mark_failed_company  # local import to avoid circulars
-    except ImportError:
-        print(
-            "⚠️ Could not import db.db_utils.mark_failed_company; "
-            "failure will not be persisted to DB."
-        )
+        return data  # ✅ no more company-level retries once we have data
+
+    # If we reach here, all attempts failed with exceptions.
+    if mark_failed_company is None:
+        # We already logged above that we couldn't import it
         return None
 
-    company_id: str | None = None
     reason: str
-
-    if last_data is not None:
-        meta = last_data.get("meta", {}) or {}
-        company_id = meta.get("company_id")
-        reason = "Missing important schedules after all retries"
-    elif last_exception is not None:
+    if last_exception is not None:
         reason = f"Exception in fetch_all_data after all retries: {last_exception!r}"
     else:
         reason = "Unknown failure after all retries"
 
-    mark_failed_company(company_id, url, reason)
-    print(f"📦 Recorded failed company in DB for {url} (company_id={company_id!r})")
+    mark_failed_company(None, url, reason)
+    print(f"📦 Recorded failed company in DB for {url} (company_id=None)")
 
     return None

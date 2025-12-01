@@ -12,14 +12,10 @@ _sem = asyncio.Semaphore(CONCURRENCY)
 
 
 async def scrape_one(symbol: str, url: str) -> None:
-    """
-    Scrape a single company given its symbol and constructed Screener URL.
-    """
     async with _sem:
         print(f"🚀 Scraping {symbol} -> {url}")
         data = await scrape_company_with_retries(url)
         if not data:
-            # scrape_company_with_retries will already have recorded failure (if you wired mark_failed_company)
             print(f"❌ Skipping {symbol} (no data after retries)")
             return
 
@@ -32,6 +28,9 @@ async def scrape_one(symbol: str, url: str) -> None:
         )
         store_raw_json(meta.get("company_id"), url, data)
         print(f"💾 Stored data for {symbol} ({url})")
+
+        # be extra nice to Screener
+        await asyncio.sleep(2.0)
 
 
 def _build_urls_from_csv(csv_path: str) -> List[tuple[str, str]]:
@@ -61,7 +60,7 @@ def _build_urls_from_csv(csv_path: str) -> List[tuple[str, str]]:
         symbol = row["symbol"]
         if not symbol:
             continue
-        url = f"{base}/{symbol}/"
+        url = f"{base}/{symbol}/consolidated/"
         symbol_url_pairs.append((symbol, url))
 
     return symbol_url_pairs

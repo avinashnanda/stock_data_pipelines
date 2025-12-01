@@ -22,7 +22,7 @@ from .config import HEADERS, REQUEST_TIMEOUT
 # -----------------------
 # Concurrency limit
 # -----------------------
-CONCURRENCY_LIMIT = 2  # be gentle with Screener
+CONCURRENCY_LIMIT = 1  # be gentle with Screener
 _sem = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
 
