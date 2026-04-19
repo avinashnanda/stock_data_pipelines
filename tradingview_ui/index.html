@@ -6,19 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Market Charts</title>
     <link rel="stylesheet" href="/app.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="/charting_library/charting_library.standalone.js"></script>
     <script src="/datafeed.js"></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
     <div class="shell">
-      <header class="topbar">
-        <div class="title-block">
-          <h1>Market Charts</h1>
-          <p>TradingView Advanced Charts with the built-in right sidebar watchlist.</p>
-        </div>
-        <div id="status" class="status" data-tone="neutral">Waiting for chart bootstrap...</div>
-      </header>
+      <div id="status" class="status sr-only" data-tone="neutral">Waiting for chart bootstrap...</div>
 
       <section class="platform-toolbar">
         <div class="toolbar-group symbol-group">
@@ -39,11 +34,132 @@
 
       <main class="workspace">
         <section class="chart-shell">
-          <div class="chart-card">
-            <div id="tv_chart_container"></div>
+          <div class="view-tabs">
+            <button id="tab-price" type="button" class="view-tab active">Price</button>
+            <button id="tab-screener" type="button" class="view-tab">Screener</button>
+          </div>
+
+          <div id="price-view" class="view-pane">
+            <div class="chart-card">
+              <div id="tv_chart_container"></div>
+            </div>
+          </div>
+
+          <div id="screener-view" class="view-pane hidden">
+            <div class="screener-page">
+              <div class="screener-company-card">
+                <div class="screener-header">
+                  <div class="screener-header-main">
+                    <div class="screener-header-topline">Notebook AI</div>
+                    <h2 id="screener-company-name">Screener Snapshot</h2>
+                    <div class="screener-price-row">
+                      <div id="screener-price" class="screener-price">--</div>
+                      <div id="screener-price-change" class="screener-price-change">--</div>
+                    </div>
+                    <p id="screener-company-meta">Select a symbol with Screener data available.</p>
+                    <div id="screener-company-links" class="screener-company-links"></div>
+                  </div>
+                  <div class="screener-header-actions">
+                    <div id="screener-badge" class="screener-badge">DB Cache</div>
+                    <button id="screener-refresh" type="button" class="secondary-button">Refresh</button>
+                  </div>
+                </div>
+
+                <div class="screener-section-nav">
+                  <a href="#screener-summary-section">Summary</a>
+                  <a href="#screener-analysis-section">Analysis</a>
+                  <a href="#screener-peers-section">Peers</a>
+                  <a href="#screener-quarters-section">Quarters</a>
+                  <a href="#screener-profitloss-section">Profit &amp; Loss</a>
+                  <a href="#screener-balancesheet-section">Balance Sheet</a>
+                  <a href="#screener-cashflow-section">Cash Flow</a>
+                  <a href="#screener-ratios-section">Ratios</a>
+                </div>
+
+                <section id="screener-summary-section" class="screener-section">
+                  <div class="screener-overview-shell">
+                    <div id="screener-summary" class="screener-summary"></div>
+                    <aside id="screener-sidebar" class="screener-sidebar"></aside>
+                  </div>
+                </section>
+
+                <section id="screener-charts-section" class="screener-section">
+                  <div id="screener-charts" class="screener-charts"></div>
+                </section>
+
+                <section id="screener-analysis-section" class="screener-section">
+                  <div id="screener-analysis" class="screener-analysis"></div>
+                </section>
+
+                <section id="screener-peers-section" class="screener-section">
+                  <div id="screener-peers" class="screener-peers"></div>
+                </section>
+
+                <section id="screener-financials-section" class="screener-section">
+                  <div id="screener-tables" class="screener-tables"></div>
+                </section>
+              </div>
+            </div>
           </div>
         </section>
+
+        <aside class="right-panel">
+          <button id="watchlist-rail-toggle" type="button" class="watchlist-rail-toggle hidden" aria-label="Show watchlist" title="Show watchlist">&gt;&gt;</button>
+          <section class="watchlist-panel">
+            <div class="watchlist-topbar">
+              <div class="watchlist-title-wrap">
+                <button id="watchlist-flag" type="button" class="watchlist-flag" aria-label="watchlist marker"></button>
+                <div class="watchlist-title-stack">
+                  <select id="watchlist-select" class="watchlist-select"></select>
+                  <span id="watchlist-subtitle" class="watchlist-subtitle">Custom synced watchlist</span>
+                </div>
+              </div>
+              <div class="watchlist-actions">
+                <button id="watchlist-panel-toggle" type="button" class="icon-button" aria-label="Hide watchlist" title="Hide watchlist">&lt;&lt;</button>
+                <button id="watchlist-add" type="button" class="icon-button" title="Add symbol">+</button>
+                <button id="new-watchlist" type="button" class="icon-button icon-button-text" title="New watchlist">New</button>
+              </div>
+            </div>
+            <div id="watchlist-stats" class="watchlist-stats"></div>
+            <div class="watchlist-header">
+              <span>Symbol</span>
+              <span>Last</span>
+              <span>Chg</span>
+              <span>Chg%</span>
+            </div>
+            <div class="watchlist-section">
+              <span id="watchlist-section-label">Active List</span>
+              <span id="watchlist-count" class="watchlist-count">0</span>
+            </div>
+            <div id="watchlist" class="watchlist"></div>
+          </section>
+        </aside>
       </main>
+    </div>
+
+    <div id="symbol-modal" class="modal-backdrop hidden" aria-hidden="true">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="symbol-modal-title">
+        <div class="modal-header">
+          <div>
+            <h2 id="symbol-modal-title">Add Symbol To Watchlist</h2>
+            <p>Search by symbol or company name.</p>
+          </div>
+          <button id="symbol-modal-close" type="button" class="modal-close" aria-label="Close">x</button>
+        </div>
+
+        <div class="modal-body">
+          <input
+            id="symbol-search-input"
+            class="modal-search"
+            type="text"
+            placeholder="Search RELIANCE, TCS, Infosys..."
+            autocomplete="off"
+          />
+          <div id="symbol-search-status" class="modal-status">Start typing to search symbols.</div>
+          <div id="symbol-search-results" class="symbol-results"></div>
+        </div>
+      </div>
     </div>
   </body>
 </html>
+

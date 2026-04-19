@@ -1,9 +1,13 @@
 beautifulsoup4
 pandas
 duckdb
+yfinance
 playwright
 ipykernel
 jupyter
 lmxl
 openpyxl
 tqdm
+scikit-learn
+pandas_ta
+plotly

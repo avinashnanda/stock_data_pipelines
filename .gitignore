@@ -5,5 +5,6 @@ test*
 *duckdb*
 *json
 *.csv
-*logs*
+*log*
 *nse_bhavcopy*
+trading_view_advanced_charts*

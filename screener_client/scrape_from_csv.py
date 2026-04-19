@@ -1,10 +1,16 @@
-# scrape_from_csv.py
-
 import asyncio
+import sys
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import pandas as pd
+from typing import List
+
 from db.db_utils import upsert_company, store_raw_json
 from screener_client.company_retry import scrape_company_with_retries
-from typing import List
 
 
 CONCURRENCY = 1
@@ -45,7 +51,6 @@ def _build_urls_from_csv(csv_path: str) -> List[tuple[str, str]]:
         - 'market cap'
     """
     df = pd.read_csv(csv_path)
-    df = df[0:20]
 
     if "symbol" not in df.columns:
         raise ValueError("CSV must contain a 'symbol' column.")
