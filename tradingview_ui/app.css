@@ -138,6 +138,7 @@ body {
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 0;
   min-height: 0;
+  transition: grid-template-columns 0.18s ease;
 }
 
 .chart-shell {
@@ -145,6 +146,7 @@ body {
   grid-template-rows: auto 1fr;
   min-width: 0;
   background: var(--bg);
+  overflow: hidden;
 }
 
 .view-tabs {
@@ -217,11 +219,10 @@ body {
   display: grid;
   grid-template-rows: 1fr;
   min-width: 0;
-  width: 320px;
   border-left: 1px solid var(--panel-border);
   background: var(--panel);
   position: relative;
-  transition: width 0.18s ease, min-width 0.18s ease, border-color 0.18s ease;
+  overflow: hidden;
 }
 
 body.watchlist-collapsed .workspace {
@@ -229,10 +230,7 @@ body.watchlist-collapsed .workspace {
 }
 
 body.watchlist-collapsed .right-panel {
-  min-width: 44px;
-  width: 44px;
   border-left-color: var(--panel-border);
-  overflow: hidden;
 }
 
 .watchlist-rail-toggle {
@@ -543,6 +541,34 @@ body.watchlist-collapsed .watchlist-panel {
   background: #f5f7fb;
   color: #1f2937;
   padding: 16px;
+  /* Ensure content never forces the page wider than the available space */
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.screener-company-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Screener header should wrap on narrow widths */
+.screener-header {
+  flex-wrap: wrap;
+}
+
+/* Price scales down gracefully */
+.screener-price {
+  font-size: clamp(22px, 4vw, 36px);
+}
+
+.screener-header h2 {
+  font-size: clamp(18px, 3vw, 30px);
+}
+
+/* Nav links wrap naturally */
+.screener-section-nav {
+  overflow-x: auto;
 }
 
 .screener-section-nav {
@@ -1588,4 +1614,29 @@ body[data-theme="dark"] .peer-table-shell tbody tr:hover td {
   .watchlist-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  /* Make tables responsive on small screens: allow wrapping and full-width tables */
+  .peer-table-shell th,
+  .peer-table-shell td,
+  .table-card th,
+  .table-card td {
+    white-space: normal;
+    min-width: 0;
+    word-break: break-word;
+  }
+
+  .peer-table-shell table,
+  .table-card table {
+    width: 100%;
+    table-layout: auto;
+  }
+
+  /* Keep a reasonable minimum for the first column but allow it to shrink */
+  .peer-table-shell th:first-child,
+  .peer-table-shell td:first-child,
+  .table-card th:first-child,
+  .table-card td:first-child {
+    min-width: 140px;
+  }
+
 }
