@@ -138,15 +138,15 @@ body {
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 0;
   min-height: 0;
-  transition: grid-template-columns 0.18s ease;
 }
 
 .chart-shell {
   display: grid;
   grid-template-rows: auto 1fr;
   min-width: 0;
-  background: var(--bg);
+  /* Hard clip: nothing inside can paint over the right-panel column */
   overflow: hidden;
+  background: var(--bg);
 }
 
 .view-tabs {
@@ -222,7 +222,8 @@ body {
   border-left: 1px solid var(--panel-border);
   background: var(--panel);
   position: relative;
-  overflow: hidden;
+  /* Must be visible so the rail-toggle can hang outside the left edge */
+  overflow: visible;
 }
 
 body.watchlist-collapsed .workspace {
@@ -231,28 +232,45 @@ body.watchlist-collapsed .workspace {
 
 body.watchlist-collapsed .right-panel {
   border-left-color: var(--panel-border);
+  /* Clip watchlist content in collapsed state, but the toggle escapes via overflow:visible on .right-panel */
+  /* The watchlist-panel itself is display:none when collapsed so nothing leaks */
 }
 
+/* ── Rail toggle (expand button, visible when panel is collapsed) ── */
 .watchlist-rail-toggle {
   position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 30px;
-  height: 58px;
+  top: 12px;
+  left: -22px;
+  z-index: 20;
+
+  width: 22px;
+  height: 44px;
   border: 1px solid var(--panel-border);
-  border-radius: 999px;
-  background: linear-gradient(180deg, var(--panel-soft), var(--panel));
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.08em;
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  background: var(--panel);
+  color: var(--muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  box-shadow: -3px 0 10px rgba(15, 23, 42, 0.12);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  padding: 0;
+}
+
+.watchlist-rail-toggle::after {
+  content: "‹";
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1;
+  color: currentColor;
+}
+
+.watchlist-rail-toggle:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .watchlist-panel {
@@ -263,12 +281,21 @@ body.watchlist-collapsed .watchlist-panel {
   display: none;
 }
 
+/* ── Watchlist topbar — toggle is inside .watchlist-actions but visually at left ── */
 .watchlist-topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  padding: 4px 8px 8px;
+  padding: 6px 8px 8px 6px;
+}
+
+/* Push actions (which contains toggle) to the left, title to the right fills space */
+.watchlist-actions {
+  order: -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 0;
 }
 
 .watchlist-title-wrap {
@@ -276,6 +303,7 @@ body.watchlist-collapsed .watchlist-panel {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  flex: 1;
 }
 
 .watchlist-title-stack {
@@ -311,13 +339,6 @@ body.watchlist-collapsed .watchlist-panel {
   margin-top: 2px;
 }
 
-.watchlist-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-right: 8px;
-}
-
 .icon-button {
   width: 28px;
   height: 28px;
@@ -344,17 +365,30 @@ body.watchlist-collapsed .watchlist-panel {
   background: var(--panel-soft);
 }
 
+/* ── Panel toggle: big button, top-left corner of watchlist ── */
 #watchlist-panel-toggle {
-  width: 34px;
-  min-width: 34px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
   border: 1px solid var(--panel-border);
-  border-radius: 999px;
+  border-radius: 10px;
   background: var(--panel-soft);
+  color: var(--muted);
   padding: 0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: -0.08em;
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+#watchlist-panel-toggle:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .watchlist-stats {
@@ -537,46 +571,16 @@ body.watchlist-collapsed .watchlist-panel {
 
 .screener-page {
   min-height: calc(100vh - 117px);
-  overflow: auto;
+  overflow-y: auto;
+  /* Critical: never wider than the chart-shell column */
+  overflow-x: hidden;
+  width: 100%;
   background: #f5f7fb;
   color: #1f2937;
   padding: 16px;
-  /* Ensure content never forces the page wider than the available space */
-  min-width: 0;
-  max-width: 100%;
   box-sizing: border-box;
 }
 
-.screener-company-card {
-  min-width: 0;
-  overflow: hidden;
-}
-
-/* Screener header should wrap on narrow widths */
-.screener-header {
-  flex-wrap: wrap;
-}
-
-/* Price scales down gracefully */
-.screener-price {
-  font-size: clamp(22px, 4vw, 36px);
-}
-
-.screener-header h2 {
-  font-size: clamp(18px, 3vw, 30px);
-}
-
-/* Nav links wrap naturally */
-.screener-section-nav {
-  overflow-x: auto;
-}
-
-.screener-section-nav {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
 
 .screener-section-nav a {
   color: #475569;
@@ -591,18 +595,24 @@ body.watchlist-collapsed .watchlist-panel {
   background: #fff;
   padding: 22px;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  /* Ensure card never wider than its container */
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .screener-header h2 {
   margin: 0;
-  font-size: 30px;
+  font-size: clamp(18px, 3cqw, 30px);
   color: #111827;
+  word-break: break-word;
 }
 
 .screener-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 20px;
   padding-bottom: 18px;
   border-bottom: 1px solid #e5eaf1;
@@ -636,7 +646,7 @@ body.watchlist-collapsed .watchlist-panel {
 }
 
 .screener-price {
-  font-size: 36px;
+  font-size: clamp(20px, 4cqw, 36px);
   font-weight: 700;
   color: #111827;
   letter-spacing: -0.04em;
@@ -722,6 +732,17 @@ body.watchlist-collapsed .watchlist-panel {
   padding: 14px 0 16px;
   border-bottom: 1px solid #e5eaf1;
   margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  /* Scroll nav links horizontally rather than forcing page wider */
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.screener-section-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .screener-section-nav a {
@@ -740,9 +761,17 @@ body.watchlist-collapsed .watchlist-panel {
 
 .screener-overview-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
   gap: 20px;
   align-items: start;
+  /* Collapse to single column when not enough space */
+  container-type: inline-size;
+}
+
+@container (max-width: 680px) {
+  .screener-overview-shell {
+    grid-template-columns: 1fr;
+  }
 }
 
 .screener-summary {
@@ -824,6 +853,7 @@ body.watchlist-collapsed .watchlist-panel {
 
 .screener-charts {
   display: grid;
+  min-width: 0;
 }
 
 .screener-chart-stage {
@@ -836,6 +866,9 @@ body.watchlist-collapsed .watchlist-panel {
     0 16px 40px rgba(15, 23, 42, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   padding: 18px 18px 14px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .screener-chart-toolbar {
@@ -976,12 +1009,14 @@ body.watchlist-collapsed .watchlist-panel {
 
 .screener-tables {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
+  min-width: 0;
 }
 
 .screener-peers {
   display: grid;
+  min-width: 0;
 }
 
 .table-card,
@@ -995,6 +1030,10 @@ body.watchlist-collapsed .watchlist-panel {
   box-shadow:
     0 14px 30px rgba(15, 23, 42, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  /* Must be constrained or the table inside pushes the page wider */
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .table-card-head,

@@ -129,13 +129,13 @@ function applyWatchlistPanelState() {
   const railToggle = $("watchlist-rail-toggle");
 
   if (panelToggle) {
-    panelToggle.textContent = "▶";
+    panelToggle.textContent = isWatchlistPanelHidden ? "‹" : "›";
     panelToggle.title = isWatchlistPanelHidden ? "Show watchlist" : "Hide watchlist";
     panelToggle.setAttribute("aria-label", isWatchlistPanelHidden ? "Show watchlist" : "Hide watchlist");
   }
 
   if (railToggle) {
-    railToggle.textContent = "◀";
+    railToggle.textContent = "";
     railToggle.title = "Show watchlist";
     railToggle.setAttribute("aria-label", "Show watchlist");
     railToggle.classList.toggle("hidden", !isWatchlistPanelHidden);
@@ -215,13 +215,14 @@ function applyResponsiveWatchlistPanelState() {
   const railToggle = $("watchlist-rail-toggle");
 
   if (panelToggle) {
-    panelToggle.textContent = "<<";
+    // › = collapse (push right), ‹ = expand (pull left) — always visible unicode
+    panelToggle.textContent = isWatchlistPanelHidden ? "‹" : "›";
     panelToggle.title = isWatchlistPanelHidden ? "Show watchlist" : "Hide watchlist";
     panelToggle.setAttribute("aria-label", isWatchlistPanelHidden ? "Show watchlist" : "Hide watchlist");
   }
 
   if (railToggle) {
-    railToggle.textContent = ">>";
+    railToggle.textContent = "";
     railToggle.title = "Show watchlist";
     railToggle.setAttribute("aria-label", "Show watchlist");
     railToggle.classList.toggle("hidden", !isWatchlistPanelHidden);
