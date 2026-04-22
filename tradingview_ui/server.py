@@ -30,6 +30,10 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from announcement_fetcher.fetcher import start_fetcher, stop_fetcher, is_fetcher_running, get_fetcher_status
+from db.db_utils import get_announcements
+from announcement_fetcher.helper import get_all_stock_fundamental_data, get_fundamental_status
+
 APP_DIR = ROOT_DIR / "tradingview_ui"
 TRADINGVIEW_DIR = ROOT_DIR / "trading_view_advanced_charts"
 UNIVERSE_CSV = ROOT_DIR / "data" / "all_stocks_combined.csv"
@@ -627,6 +631,54 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"sources": SOURCE_DEFINITIONS})
                 return
 
+            if parsed.path == "/api/announcements/toggle":
+                if method != "POST":
+                    self.send_error(HTTPStatus.METHOD_NOT_ALLOWED, "Method not allowed")
+                    return
+                if is_fetcher_running():
+                    stop_fetcher()
+                else:
+                    start_fetcher()
+                self._send_json(get_fetcher_status())
+                return
+
+            if parsed.path == "/api/announcements/status":
+                self._send_json(get_fetcher_status())
+                return
+
+            if parsed.path == "/api/announcements/refresh_fundamentals_status":
+                self._send_json(get_fundamental_status())
+                return
+
+            if parsed.path == "/api/announcements/refresh_fundamentals":
+                if method != "POST":
+                    self.send_error(HTTPStatus.METHOD_NOT_ALLOWED, "Method not allowed")
+                    return
+                threading.Thread(target=get_all_stock_fundamental_data, daemon=True).start()
+                self._send_json({"status": "started"})
+                return
+
+            if parsed.path == "/api/announcements":
+                symbol = params.get("symbol", [""])[0].strip()
+                if symbol.startswith("NSE:"):
+                    symbol = symbol[4:]
+                limit = int(params.get("limit", ["50"])[0])
+                
+                start_date = params.get("start_date", [""])[0].strip()
+                end_date = params.get("end_date", [""])[0].strip()
+                sentiments_param = params.get("sentiments", [""])[0].strip()
+                sentiments = [s.strip() for s in sentiments_param.split(",")] if sentiments_param else None
+
+                announcements = get_announcements(
+                    symbol=symbol if symbol else None, 
+                    limit=limit,
+                    start_date=start_date if start_date else None,
+                    end_date=end_date if end_date else None,
+                    sentiments=sentiments
+                )
+                self._send_json({"announcements": announcements})
+                return
+
             if parsed.path == "/api/screener/company":
                 if method != "GET":
                     self.send_error(HTTPStatus.METHOD_NOT_ALLOWED, "Method not allowed")
@@ -748,7 +800,12 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
         return value
 
     def log_message(self, format: str, *args) -> None:
-        print(f"[tradingview-ui] {self.address_string()} - {format % args}")
+        log_line = f"[{datetime.now().isoformat()}] [tradingview-ui] {self.address_string()} - {format % args}\n"
+        try:
+            with open(APP_DIR / "server.log", "a") as f:
+                f.write(log_line)
+        except Exception:
+            pass
 
 
 class AppServer(ThreadingHTTPServer):
@@ -770,7 +827,7 @@ class AppServer(ThreadingHTTPServer):
 def main() -> None:
     parser = argparse.ArgumentParser(description="Serve the TradingView demo app")
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", default=9001, type=int)
+    parser.add_argument("--port", default=9032, type=int)
     args = parser.parse_args()
 
     try:

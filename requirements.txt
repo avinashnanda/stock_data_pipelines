@@ -5,9 +5,16 @@ yfinance
 playwright
 ipykernel
 jupyter
-lmxl
 openpyxl
 tqdm
 scikit-learn
 pandas_ta
 plotly
+langchain
+langchain_openai
+transformers
+pdfminer.six
+selenium
+webdriver-manager
+requests
+slack_sdk

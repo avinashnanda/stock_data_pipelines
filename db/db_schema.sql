@@ -25,3 +25,13 @@ CREATE TABLE IF NOT EXISTS failed_companies (
     failure_reason VARCHAR,
     last_attempt TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS announcements (
+    symbol VARCHAR,
+    company_name VARCHAR,
+    broadcast_date VARCHAR,
+    pdf_url VARCHAR PRIMARY KEY,
+    summary VARCHAR,
+    sentiment VARCHAR,
+    fetched_at TIMESTAMP
+);

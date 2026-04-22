@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="/charting_library/charting_library.standalone.js"></script>
     <script src="/datafeed.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -37,6 +38,7 @@
           <div class="view-tabs">
             <button id="tab-price" type="button" class="view-tab active">Price</button>
             <button id="tab-screener" type="button" class="view-tab">Screener</button>
+            <button id="tab-news" type="button" class="view-tab">Announcements</button>
           </div>
 
           <div id="price-view" class="view-pane">
@@ -101,9 +103,69 @@
               </div>
             </div>
           </div>
+
+          <div id="news-view" class="view-pane hidden">
+            <div class="news-page">
+              <div class="news-header" style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <h2>Market Announcements</h2>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div id="fetcher-progress-container" style="display: none; align-items: center; gap: 8px;">
+                      <span id="fetcher-status-text" style="font-size: 12px; color: var(--muted);">Processing...</span>
+                      <progress id="fetcher-progress" value="0" max="100" style="width: 100px; height: 12px;"></progress>
+                    </div>
+                    <div id="fundamental-progress-container" style="display: none; align-items: center; gap: 8px;">
+                      <span id="fundamental-status-text" style="font-size: 12px; color: var(--muted);">Refreshing...</span>
+                      <progress id="fundamental-progress" value="0" max="100" style="width: 100px; height: 12px;"></progress>
+                    </div>
+                    <div id="fundamental-metadata-container" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; margin-right: 4px;">
+                      <span id="fundamental-last-refresh" style="font-size: 11px; color: var(--text); font-weight: bold;"></span>
+                      <span id="fundamental-count" style="font-size: 11px; color: var(--muted);"></span>
+                    </div>
+                    <button id="news-refresh-fundamentals" type="button" class="secondary-button">Refresh Fundamentals</button>
+                    <button id="news-fetcher-toggle" type="button" class="primary-button">Start Fetcher</button>
+                  </div>
+                </div>
+                <div class="news-filters">
+                  <div class="filter-group">
+                    <label>From</label>
+                    <input type="date" id="news-filter-start" />
+                  </div>
+                  <div class="filter-group">
+                    <label>To</label>
+                    <input type="date" id="news-filter-end" />
+                  </div>
+                  <div class="filter-group">
+                    <label>Company</label>
+                    <input type="text" id="news-filter-symbol" placeholder="Symbol..." />
+                  </div>
+                  <div class="filter-group sentiment-filters">
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="news-filter-positive" value="POSITIVE" checked /> <span class="sentiment-pill positive">Positive</span>
+                    </label>
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="news-filter-negative" value="NEGATIVE" checked /> <span class="sentiment-pill negative">Negative</span>
+                    </label>
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="news-filter-neutral" value="NEUTRAL" /> <span class="sentiment-pill neutral">Neutral</span>
+                    </label>
+                    <label class="checkbox-label" style="margin-left: 12px; border-left: 1px solid var(--panel-border); padding-left: 12px;">
+                      <input type="checkbox" id="news-sound-toggle" /> <span style="font-size: 12px;">Sound Alerts</span>
+                    </label>
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="news-sound-watchlist" disabled /> <span style="font-size: 12px; color: var(--muted);" id="news-sound-watchlist-label">Watchlist Only</span>
+                    </label>
+                  </div>
+                  <button id="news-filter-apply" type="button" class="secondary-button" style="margin-top: auto; margin-bottom: 2px;">Apply</button>
+                </div>
+              </div>
+              <div id="news-feed" class="news-feed" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+            </div>
+          </div>
         </section>
 
         <aside class="right-panel">
+          <div id="watchlist-resizer" class="watchlist-resizer"></div>
           <button id="watchlist-rail-toggle" type="button" class="watchlist-rail-toggle hidden" aria-label="Show watchlist" title="Show watchlist">&gt;&gt;</button>
           <section class="watchlist-panel">
             <div class="watchlist-topbar">
@@ -132,6 +194,10 @@
               <span id="watchlist-count" class="watchlist-count">0</span>
             </div>
             <div id="watchlist" class="watchlist"></div>
+            <div class="active-stock-news-section" style="padding: 12px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; height: 300px;">
+              <div id="watchlist-section-label" style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 8px;">LATEST ANNOUNCEMENTS</div>
+              <div id="active-stock-news" class="active-stock-news-feed" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
           </section>
         </aside>
       </main>
