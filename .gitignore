@@ -8,3 +8,6 @@ test*
 *log*
 *nse_bhavcopy*
 trading_view_advanced_charts*
+node_modules
+*slack_utils*
+.env

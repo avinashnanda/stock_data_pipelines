@@ -1,0 +1,279 @@
+# Integrate AI Hedge Fund into TradingView UI
+
+Integrate the AI Hedge Fund (multi-agent LLM stock analysis system) as a new "Hedge Fund" tab within the existing TradingView UI desktop application. The hedge fund agents will use data already available in the app (yfinance prices, Screener fundamentals) instead of the external `financial-datasets-api`.
+
+## User Review Required
+
+> [!IMPORTANT]
+> **LLM Provider Configuration**: The hedge fund agents require an LLM API key (e.g., OpenAI, Groq, Ollama). We need to decide how API keys are managed:
+> - **Option A**: Read from `.env` file in the project root (simplest, current approach in ai-hedge-fund)
+> - **Option B**: Add a settings panel in the UI where users can input/save API keys
+> - **Recommendation**: Start with Option A (`.env` file), add UI settings later if needed.
+
+> [!IMPORTANT]
+> **Indian vs US Stock Tickers**: The AI hedge fund was designed for US stocks (AAPL, MSFT, etc.) while your TradingView UI is for NSE/Indian stocks (RELIANCE, TCS, etc.). The agents use `financial-datasets-api` data models (SEC filings, US-style financial metrics). When we replace the data layer:
+> - **Price data**: Works fine — yfinance supports `.NS` tickers
+> - **Financial metrics**: We'll map Screener.in data fields to the `FinancialMetrics` model the agents expect
+> - **Line items** (detailed financials like capex, depreciation, etc.): We'll extract from Screener's P&L/balance sheet/cash flow tables
+> - **Insider trades & company news**: These came from the US-focused API. We can replace with your existing announcement/news data, or skip these agents initially
+> - **Market cap**: Available from Screener summary data
+
+> [!WARNING]
+> **Data Coverage Gap**: Some agents (e.g., Warren Buffett, Sentiment) rely heavily on data types that may not map perfectly from Screener.in (e.g., `insider_trades`, `company_facts`). These agents will either produce partial analysis or gracefully skip missing data sections. Do you want me to:
+> - **A)** Include ALL agents and gracefully handle missing data (some may produce incomplete analysis)
+> - **B)** Only include agents that work well with available data (Technical, Fundamentals, Valuation, Growth, News Sentiment via announcements)
+> - **Recommendation**: Option A — include all agents, gracefully handle missing data
+
+## Open Questions
+
+> [!IMPORTANT]
+> 1. **Ollama Support**: Do you want to support local LLMs via Ollama, or only cloud API providers (OpenAI, Groq, etc.)?
+> 2. **Default Analysts**: Should the hedge fund tab default to a subset of analysts (e.g., Rakesh Jhunjhunwala, Technical, Fundamentals) or all 18?
+> 3. **Backtesting**: The original app has backtesting capability. Should we include it in this integration or skip it for now?
+
+## Proposed Changes
+
+### Architecture Overview
+
+```mermaid
+graph TB
+    subgraph "TradingView UI (Frontend)"
+        HF_TAB["Hedge Fund Tab"]
+        PRICE_TAB["Price Tab"]
+        SCREENER_TAB["Screener Tab"]
+        WATCHLIST["Watchlist"]
+    end
+
+    subgraph "server.py (Backend)"
+        HF_API["/api/hedge-fund/*"]
+        PRICE_API["/api/history"]
+        SCREENER_API["/api/screener/*"]
+    end
+
+    subgraph "Hedge Fund Engine"
+        DATA_BRIDGE["data_bridge.py<br/>(replaces api.py)"]
+        AGENTS["Agent System<br/>(19 analysts)"]
+        GRAPH["LangGraph Workflow"]
+        LLM["LLM Provider<br/>(OpenAI/Groq/Ollama)"]
+    end
+
+    subgraph "Data Sources"
+        YFINANCE["yfinance<br/>(Price/OHLCV)"]
+        DUCKDB["DuckDB<br/>(Screener Data)"]
+        ANNOUNCEMENTS["Announcements DB"]
+    end
+
+    HF_TAB -->|"Select stock + Run"| HF_API
+    HF_API -->|"SSE stream"| HF_TAB
+    HF_API --> GRAPH
+    GRAPH --> AGENTS
+    AGENTS --> DATA_BRIDGE
+    AGENTS --> LLM
+    DATA_BRIDGE --> YFINANCE
+    DATA_BRIDGE --> DUCKDB
+    DATA_BRIDGE --> ANNOUNCEMENTS
+    WATCHLIST -->|"Stock selection"| HF_TAB
+```
+
+---
+
+### Component 1: Data Bridge Layer
+
+The critical integration piece — replaces `ai-hedge-fund/src/tools/api.py` with a new module that fetches data from yfinance and DuckDB/Screener instead of `financial-datasets-api`.
+
+#### [NEW] [data_bridge.py](file:///D:/projects/stock_data_pipelines/ai-hedge-fund/src/tools/data_bridge.py)
+
+A drop-in replacement for `api.py` functions, backed by local data sources:
+
+| Original Function | New Data Source | Notes |
+|---|---|---|
+| `get_prices()` | yfinance via existing `YFinanceSourceAdapter` | Convert yfinance OHLCV to `Price` model |
+| `get_financial_metrics()` | Screener DuckDB (`screener_financials.duckdb`) | Map Screener summary/ratios → `FinancialMetrics` |
+| `search_line_items()` | Screener DuckDB (P&L, Balance Sheet, Cash Flow tables) | Map table rows → `LineItem` model |
+| `get_insider_trades()` | Return empty list (data not available for NSE) | Agents gracefully handle empty data |
+| `get_company_news()` | Announcements DuckDB (`announcements.duckdb`) | Map announcements → `CompanyNews` model |
+| `get_market_cap()` | Screener summary "Market Cap" field | Parse Indian number format |
+| `prices_to_df()` | Same logic, unchanged | |
+| `get_price_data()` | Same logic, unchanged | |
+
+#### [MODIFY] [api.py](file:///D:/projects/stock_data_pipelines/ai-hedge-fund/src/tools/api.py)
+
+- Add a flag/switch at the top to select between `financial-datasets-api` mode and `local_data` mode
+- When `local_data` mode is active, all functions delegate to `data_bridge.py`
+- This preserves backward compatibility while enabling the integrated mode
+
+---
+
+### Component 2: Backend API Routes
+
+Add hedge fund API endpoints to the existing `server.py`.
+
+#### [MODIFY] [server.py](file:///D:/projects/stock_data_pipelines/tradingview_ui/server.py)
+
+Add these new API routes:
+
+| Route | Method | Description |
+|---|---|---|
+| `/api/hedge-fund/agents` | GET | List available analyst agents |
+| `/api/hedge-fund/models` | GET | List available LLM models |
+| `/api/hedge-fund/run` | POST | Run analysis (SSE streaming response) |
+| `/api/hedge-fund/status` | GET | Get current analysis progress |
+
+The `/run` endpoint will:
+1. Accept JSON body: `{ tickers, selected_analysts, model_name, model_provider, start_date, end_date, initial_cash }`
+2. Run the LangGraph workflow in a background thread
+3. Stream SSE progress events back to the frontend
+4. Return final decisions and analyst signals on completion
+
+Key design decisions:
+- Use Python's `ThreadingHTTPServer` pattern (already used by server.py) — run the graph in a background thread, poll progress
+- Reuse the existing `AgentProgress` handler system from `src/utils/progress.py`
+- Set environment variables to force `data_bridge` mode before importing hedge fund modules
+
+---
+
+### Component 3: Frontend — Hedge Fund Tab
+
+#### [MODIFY] [index.html](file:///D:/projects/stock_data_pipelines/tradingview_ui/index.html)
+
+Add a new "Hedge Fund" tab button and view pane:
+
+```html
+<button id="tab-hedgefund" type="button" class="view-tab">Hedge Fund</button>
+
+<div id="hedgefund-view" class="view-pane hidden">
+  <!-- Config panel: stock selector, analyst checkboxes, model selector, run button -->
+  <!-- Progress panel: real-time agent status updates -->  
+  <!-- Results panel: trading decisions, analyst signals breakdown -->
+</div>
+```
+
+UI sections within the Hedge Fund tab:
+1. **Configuration Bar**: Stock ticker(s) from watchlist, date range, LLM model selector, analyst selector (checkboxes), "Run Analysis" button
+2. **Agent Progress Panel**: Real-time status of each running agent (SSE-fed)
+3. **Results Dashboard**: 
+   - Final trading decision (buy/sell/hold) with confidence
+   - Per-analyst signal cards (expandable reasoning)
+   - Portfolio allocation recommendation
+
+#### [MODIFY] [app.js](file:///D:/projects/stock_data_pipelines/tradingview_ui/app.js)
+
+Add JavaScript functions:
+- `loadHedgeFundAgents()` — Fetch available agents, render checkboxes
+- `loadHedgeFundModels()` — Fetch available LLM models, populate dropdown
+- `runHedgeFundAnalysis()` — POST to `/api/hedge-fund/run`, consume SSE stream
+- `renderHedgeFundProgress(event)` — Update progress UI per agent
+- `renderHedgeFundResults(data)` — Render final decisions and signals
+- `switchView('hedgefund')` — Handle tab switching
+
+Integration with existing watchlist:
+- Clicking a stock in watchlist while on hedge fund tab auto-populates the ticker
+- The "Run Analysis" button uses the currently selected stock(s)
+
+#### [MODIFY] [app.css](file:///D:/projects/stock_data_pipelines/tradingview_ui/app.css)
+
+Add styles for:
+- Hedge fund configuration panel (horizontal form layout)
+- Agent progress cards (animated status indicators)
+- Results cards (signal badges: bullish/bearish/neutral with colors)
+- Analyst reasoning panels (collapsible)
+- Loading/streaming state animations
+
+---
+
+### Component 4: Dependency Management
+
+#### [MODIFY] [requirements.txt](file:///D:/projects/stock_data_pipelines/requirements.txt)
+
+Add required packages from ai-hedge-fund that aren't already in the project:
+```
+langchain-anthropic
+langchain-groq
+langchain-deepseek
+langchain-ollama
+langchain-google-genai
+langchain-gigachat
+langchain-xai
+langgraph
+python-dotenv
+colorama
+rich
+pydantic>=2.4.0
+numpy
+```
+
+---
+
+### Component 5: Cleanup — Remove Unwanted Code
+
+#### [DELETE] Docker infrastructure
+- `ai-hedge-fund/docker/` — entire directory (Dockerfile, docker-compose.yml, run scripts)
+- `ai-hedge-fund/.dockerignore`
+- `ai-hedge-fund/app/run.bat` and `ai-hedge-fund/app/run.sh`
+
+#### [DELETE] Standalone web app
+- `ai-hedge-fund/app/frontend/` — entire React/Vite frontend (replaced by integrated tab)
+- `ai-hedge-fund/app/backend/` — entire FastAPI backend (replaced by routes in server.py)
+- `ai-hedge-fund/app/README.md`
+
+#### [KEEP] Core engine (these stay and are imported by server.py)
+- `ai-hedge-fund/src/agents/` — all agent files
+- `ai-hedge-fund/src/graph/` — LangGraph state and workflow
+- `ai-hedge-fund/src/llm/` — LLM model configuration
+- `ai-hedge-fund/src/utils/` — progress tracker, analysts config, display utilities
+- `ai-hedge-fund/src/data/` — models and cache
+- `ai-hedge-fund/src/tools/` — api.py (modified) + new data_bridge.py
+- `ai-hedge-fund/pyproject.toml` — for reference (deps merged into main requirements.txt)
+
+#### Files to keep for CLI usage (optional)
+- `ai-hedge-fund/src/main.py` — CLI entry point (still works if someone wants command-line mode)
+- `ai-hedge-fund/src/backtester.py` — CLI backtester
+
+---
+
+### Component 6: Python Path & Import Setup
+
+#### [MODIFY] [server.py](file:///D:/projects/stock_data_pipelines/tradingview_ui/server.py) (sys.path addition)
+
+Add the `ai-hedge-fund` directory to `sys.path` so that `from src.agents...` imports work:
+
+```python
+AI_HEDGE_FUND_DIR = ROOT_DIR / "ai-hedge-fund"
+if str(AI_HEDGE_FUND_DIR) not in sys.path:
+    sys.path.insert(0, str(AI_HEDGE_FUND_DIR))
+```
+
+Set environment variable to signal data bridge mode:
+```python
+os.environ["HEDGE_FUND_DATA_MODE"] = "local"
+```
+
+---
+
+## Verification Plan
+
+### Automated Tests
+
+1. **Server startup test**: Run `python tradingview_ui/server.py --port 9099` and verify it starts without import errors
+2. **API endpoint tests**:
+   ```bash
+   # List agents
+   curl http://127.0.0.1:9099/api/hedge-fund/agents
+   
+   # List models  
+   curl http://127.0.0.1:9099/api/hedge-fund/models
+   
+   # Run analysis (requires LLM API key)
+   curl -X POST http://127.0.0.1:9099/api/hedge-fund/run \
+     -H "Content-Type: application/json" \
+     -d '{"tickers":["RELIANCE"],"selected_analysts":["technical_analyst"]}'
+   ```
+3. **Data bridge test**: Verify `data_bridge.py` returns valid data for Indian stocks
+4. **Browser test**: Open the app, navigate to Hedge Fund tab, select a stock, run analysis
+
+### Manual Verification
+1. Verify the Hedge Fund tab renders correctly in the UI
+2. Select a stock from watchlist, verify it populates in the hedge fund tab
+3. Run analysis with a simple agent (Technical Analyst — no LLM needed)
+4. Verify SSE streaming shows real-time progress
+5. Verify results render with signal badges and reasoning

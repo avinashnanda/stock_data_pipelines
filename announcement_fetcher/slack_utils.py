@@ -1,5 +1,9 @@
+import os
+from dotenv import load_dotenv
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
+
+load_dotenv()
 
 def send_to_slack(summary: str, sentiment: str, pdf_url: str,Broadcast_date: str,Company_name:str) -> None:
     """
@@ -14,7 +18,7 @@ def send_to_slack(summary: str, sentiment: str, pdf_url: str,Broadcast_date: str
         None
     """
 
-    slack_token = "xoxb-7451839956693-8317426686067-vfi29YCmLRaeyCXVwuqiX8IP"
+    slack_token = os.getenv('SLACK_TOKEN')
     # Define color mapping and channels based on sentiment
     color_mapping = {
         "positive": "#36a64f",  # Green
@@ -93,7 +97,7 @@ def send_to_slack_financial_result_announced(Company_Name: str, Details: str, pd
         None
     """
 
-    slack_token = "xoxb-7451839956693-8317426686067-vfi29YCmLRaeyCXVwuqiX8IP"
+    slack_token = os.getenv('SLACK_TOKEN')
     channel = "#financial_results_declared"
 
     message_payload = {
@@ -137,7 +141,7 @@ def send_to_slack_record_date_announced(Company_Name: str, Details: str, pdf_url
         None
     """
 
-    slack_token = "xoxb-7451839956693-8317426686067-vfi29YCmLRaeyCXVwuqiX8IP"
+    slack_token = os.getenv('SLACK_TOKEN')
     channel = "#record_date_declared"
 
     message_payload = {

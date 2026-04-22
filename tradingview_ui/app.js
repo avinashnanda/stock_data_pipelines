@@ -526,10 +526,12 @@ function switchView(view) {
   $("tab-price").classList.toggle("active", view === "price");
   $("tab-screener").classList.toggle("active", view === "screener");
   if ($("tab-news")) $("tab-news").classList.toggle("active", view === "news");
+  if ($("tab-hedgefund")) $("tab-hedgefund").classList.toggle("active", view === "hedgefund");
   
   $("price-view").classList.toggle("hidden", view !== "price");
   $("screener-view").classList.toggle("hidden", view !== "screener");
   if ($("news-view")) $("news-view").classList.toggle("hidden", view !== "news");
+  if ($("hedgefund-view")) $("hedgefund-view").classList.toggle("hidden", view !== "hedgefund");
 
   if (view === "screener") {
     scheduleScreenerLayoutSync();
@@ -540,6 +542,9 @@ function switchView(view) {
   } else if (view === "news") {
     refreshNewsView();
     checkFetcherStatus();
+  } else if (view === "hedgefund") {
+    if (typeof initHedgeFund === "function") initHedgeFund();
+    if (typeof syncHedgeFundTicker === "function") syncHedgeFundTicker();
   }
 }
 
@@ -1593,6 +1598,12 @@ function bindEvents() {
   if ($("tab-news")) {
     $("tab-news").addEventListener("click", () => {
       switchView("news");
+    });
+  }
+
+  if ($("tab-hedgefund")) {
+    $("tab-hedgefund").addEventListener("click", () => {
+      switchView("hedgefund");
     });
   }
 

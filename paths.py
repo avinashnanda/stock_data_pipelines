@@ -73,3 +73,4 @@ FUNDAMENTAL_DATA_DIR.mkdir(parents=True, exist_ok=True)
 SCREENER_DB = DB_DIR / "screener_financials.duckdb"
 ANNOUNCEMENTS_DB = DB_DIR / "announcements.duckdb"
 FUNDAMENTALS_DB = DB_DIR / "fundamentals.duckdb"
+HEDGE_FUND_DB = DB_DIR / "hedge_fund.duckdb"
