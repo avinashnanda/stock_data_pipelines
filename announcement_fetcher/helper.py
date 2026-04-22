@@ -4,12 +4,14 @@ from datetime import datetime,timedelta
 import os
 from tqdm.auto import tqdm
 
-import os
-os.chdir("..")
-
+import sys
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from paths import UNIVERSE_CSV, FUNDAMENTAL_DATA_DIR  # noqa: E402
 
 _fundamental_total = 0
 _fundamental_processed = 0
@@ -32,7 +34,7 @@ def get_fundamental_status():
 
 def get_all_stocks_symbols():
     # Reading the CSV file from the URL
-    df = pd.read_csv(str(ROOT_DIR / "data" / "all_stocks_combined.csv"))
+    df = pd.read_csv(str(UNIVERSE_CSV))
     symbols = df["symbol"].dropna().str.strip().str.upper().tolist()
     return symbols
 
@@ -137,7 +139,7 @@ def get_all_stock_fundamental_data():
     df_stock_data = pd.DataFrame(stock_data)
     df_stock_data["Market Cap"] = (pd.to_numeric(df_stock_data["Market Cap"], errors="coerce")/10_000_000)
     
-    output_dir = str(ROOT_DIR / "data" / "fundamental_data")
+    output_dir = str(FUNDAMENTAL_DATA_DIR)
     os.makedirs(output_dir, exist_ok=True)
     df_stock_data.to_csv(f"{output_dir}/fundamental_data_all_stocks{today}.csv", index=False)
     

@@ -30,14 +30,18 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from paths import (  # noqa: E402
+    ASSETS_DIR, APP_DATA_DIR, UI_DIR, TRADINGVIEW_CHARTS_DIR,
+    UNIVERSE_CSV, SCREENER_DB, LOGS_DIR,
+)
 from announcement_fetcher.fetcher import start_fetcher, stop_fetcher, is_fetcher_running, get_fetcher_status
 from db.db_utils import get_announcements
 from announcement_fetcher.helper import get_all_stock_fundamental_data, get_fundamental_status
 
-APP_DIR = ROOT_DIR / "tradingview_ui"
-TRADINGVIEW_DIR = ROOT_DIR / "trading_view_advanced_charts"
-UNIVERSE_CSV = ROOT_DIR / "data" / "all_stocks_combined.csv"
-SCREENER_DB = ROOT_DIR / "db" / "screener_financials.duckdb"
+APP_DIR = UI_DIR
+TRADINGVIEW_DIR = TRADINGVIEW_CHARTS_DIR
+# UNIVERSE_CSV is already imported from paths
+SCREENER_DB_PATH = SCREENER_DB
 SCREENER_SOURCE_BASE = "https://www.screener.in/company"
 
 SUPPORTED_RESOLUTIONS = ["1", "5", "15", "30", "60", "240", "1D", "1W", "1M"]
@@ -138,7 +142,7 @@ def load_latest_screener_snapshot(symbol: str) -> dict[str, Any] | None:
     normalized = normalize_symbol_name(symbol)
     source_like = f"%/COMPANY/{normalized}/%"
 
-    with contextlib.closing(duckdb.connect(str(SCREENER_DB), read_only=True)) as con:
+    with contextlib.closing(duckdb.connect(str(SCREENER_DB_PATH), read_only=True)) as con:
         row = con.execute(
             """
             SELECT company_id, source_url, scraped_at, payload_json

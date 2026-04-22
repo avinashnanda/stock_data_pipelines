@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loading...</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 480px;
+      height: 320px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(145deg, #131722 0%, #1e222d 50%, #2a2e39 100%);
+      color: #d1d4dc;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      -webkit-app-region: drag;
+    }
+
+    /* Subtle animated gradient glow */
+    body::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: conic-gradient(
+        from 0deg,
+        transparent 0%,
+        rgba(42, 130, 218, 0.08) 25%,
+        transparent 50%,
+        rgba(38, 198, 218, 0.06) 75%,
+        transparent 100%
+      );
+      animation: rotate 4s linear infinite;
+    }
+
+    @keyframes rotate {
+      to { transform: rotate(360deg); }
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #2962ff, #26c6da);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .logo span {
+      font-weight: 300;
+      opacity: 0.8;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #2962ff;
+      border-radius: 50%;
+      animation: spin 0.8s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .status {
+      font-size: 13px;
+      color: #787b86;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    .version {
+      position: absolute;
+      bottom: 16px;
+      right: 20px;
+      font-size: 11px;
+      color: #434651;
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="content">
+    <div class="logo">Stock Data <span>Pipelines</span></div>
+    <div class="spinner"></div>
+    <div class="status">Starting backend services...</div>
+  </div>
+  <div class="version">v1.0.0</div>
+</body>
+</html>

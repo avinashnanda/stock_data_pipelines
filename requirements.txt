@@ -18,3 +18,4 @@ selenium
 webdriver-manager
 requests
 slack_sdk
+pyinstaller

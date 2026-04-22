@@ -1,14 +1,21 @@
 # db/db_utils.py
 
 import json
+import sys
 from datetime import datetime
 import duckdb
 from typing import Optional
 from pathlib import Path
 import pandas as pd
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-DB_FILE = str(ROOT_DIR / "db" / "screener_financials.duckdb")
+# Ensure project root is on sys.path so paths module can be imported
+_ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(_ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(_ROOT_DIR))
+
+from paths import SCREENER_DB, ANNOUNCEMENTS_DB, FUNDAMENTALS_DB  # noqa: E402
+
+DB_FILE = str(SCREENER_DB)
 
 def get_connection():
     return duckdb.connect(DB_FILE)
@@ -76,7 +83,7 @@ def mark_failed_company(
     )
     con.close()
 
-ANNOUNCEMENTS_DB_FILE = str(ROOT_DIR / "db" / "announcements.duckdb")
+ANNOUNCEMENTS_DB_FILE = str(ANNOUNCEMENTS_DB)
 
 def get_announcements_connection():
     con = duckdb.connect(ANNOUNCEMENTS_DB_FILE)
@@ -160,7 +167,7 @@ def get_announcements(symbol: str = None, limit: int = 50, start_date: str = Non
     finally:
         con.close()
 
-FUNDAMENTALS_DB_FILE = str(ROOT_DIR / "db" / "fundamentals.duckdb")
+FUNDAMENTALS_DB_FILE = str(FUNDAMENTALS_DB)
 
 def get_fundamentals_connection():
     return duckdb.connect(FUNDAMENTALS_DB_FILE)
@@ -177,7 +184,7 @@ def store_fundamental_data(df: pd.DataFrame):
 
 def get_symbols_with_min_market_cap(min_cap: float = 5000) -> set:
     try:
-        con = duckdb.connect(FUNDAMENTALS_DB_FILE, read_only=True)
+        con = duckdb.connect(str(FUNDAMENTALS_DB), read_only=True)
         results = con.execute("SELECT Symbol FROM fundamentals WHERE \"Market Cap\" > ?", [min_cap]).fetchall()
         con.close()
         return {r[0] for r in results}
@@ -191,7 +198,7 @@ def get_symbols_with_min_market_cap(min_cap: float = 5000) -> set:
 
 def get_fundamentals_metadata():
     try:
-        con = duckdb.connect(FUNDAMENTALS_DB_FILE, read_only=True)
+        con = duckdb.connect(str(FUNDAMENTALS_DB), read_only=True)
         results = con.execute("SELECT MAX(fetched_at), COUNT(Symbol) FROM fundamentals").fetchone()
         con.close()
         if results and results[0]:

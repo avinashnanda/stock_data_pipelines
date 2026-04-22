@@ -10,6 +10,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from paths import UNIVERSE_CSV, DATA_DIR  # noqa: E402
 from langchain_openai import ChatOpenAI  # noqa: E402
 from announcement_fetcher.pdf_utils import load_nse_announcement_to_dataframe  # noqa: E402
 from announcement_fetcher.summarize import fetch_summarize_announcements_pdf  # noqa: E402
@@ -36,7 +37,7 @@ def process_special_announcements(row, pdf_url):
 
 def filter_unwanted_announcements(df_nse):
     df_unwanted_announcements = pd.read_csv(
-        str(ROOT_DIR / "data" / "Unwanted_announcements.csv")
+        str(DATA_DIR / "Unwanted_announcements.csv")
     )
     # Filter out unwanted subjects
     df_nse = df_nse[~df_nse["Subject"].isin(df_unwanted_announcements["subject"])]
@@ -84,7 +85,7 @@ def fetcher_loop():
             symbols = get_symbols_with_min_market_cap(5000)
             if not symbols:
                 # Fallback if DB is empty
-                universe_path = ROOT_DIR / "data" / "all_stocks_combined.csv"
+                universe_path = UNIVERSE_CSV
                 if universe_path.exists():
                     df_universe = pd.read_csv(universe_path)
                     symbols = set(df_universe['symbol'].dropna().str.strip().str.upper().tolist())
