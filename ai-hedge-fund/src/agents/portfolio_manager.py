@@ -196,7 +196,7 @@ def generate_trading_decision(
         # If only 'hold' key exists, there is no trade possible
         if set(aa.keys()) == {"hold"}:
             prefilled_decisions[t] = PortfolioDecision(
-                action="hold", quantity=0, confidence=100.0, reasoning="No valid trade available"
+                action="hold", quantity=0, confidence=100, reasoning="No valid trade available"
             )
         else:
             tickers_for_llm.append(t)

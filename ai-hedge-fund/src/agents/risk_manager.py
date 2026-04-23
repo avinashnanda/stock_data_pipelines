@@ -111,6 +111,7 @@ def risk_management_agent(state: AgentState, agent_id: str = "risk_management_ag
             risk_analysis[ticker] = {
                 "remaining_position_limit": 0.0,
                 "current_price": 0.0,
+                "confidence": 0,
                 "reasoning": {
                     "error": "Missing price data for risk calculation"
                 }
@@ -174,6 +175,7 @@ def risk_management_agent(state: AgentState, agent_id: str = "risk_management_ag
         risk_analysis[ticker] = {
             "remaining_position_limit": float(max_position_size),
             "current_price": float(current_price),
+            "confidence": 100,  # Risk calculation is deterministic
             "volatility_metrics": {
                 "daily_volatility": float(vol_data.get("daily_volatility", 0.05)),
                 "annualized_volatility": float(vol_data.get("annualized_volatility", 0.25)),
@@ -190,14 +192,14 @@ def risk_management_agent(state: AgentState, agent_id: str = "risk_management_ag
                 "position_limit": float(position_limit),
                 "remaining_limit": float(remaining_position_limit),
                 "available_cash": float(portfolio.get("cash", 0)),
-                "risk_adjustment": f"Volatility x Correlation adjusted: {combined_limit_pct:.1%} (base {vol_adjusted_limit_pct:.1%})"
+                "risk_adjustment": f"Volatility x Correlation adjusted: {combined_limit_pct:.1%} (base {vol_adjusted_limit_pct:.1%}) | Ann. Vol: {vol_data.get('annualized_volatility', 0):.1%}"
             },
         }
         
         progress.update_status(
             agent_id, 
             ticker, 
-            f"Adj. limit: {combined_limit_pct:.1%}, Available: ${max_position_size:.0f}"
+            f"Adj. limit: {combined_limit_pct:.1%}, Vol: {vol_data.get('annualized_volatility', 0):.1%}"
         )
 
     progress.update_status(agent_id, None, "Done")

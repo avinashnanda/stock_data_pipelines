@@ -332,7 +332,7 @@ function _renderAnalysisResults(data) {
         <td><strong>${ticker}</strong></td>
         <td><span class="hf-action-badge ${action}">${dec.action || "HOLD"}</span></td>
         <td>${dec.quantity || 0}</td>
-        <td>${dec.confidence ? (dec.confidence * 1).toFixed(0) + "%" : "--"}</td>
+        <td>${(dec.confidence !== undefined && dec.confidence !== null) ? (dec.confidence * 1).toFixed(0) + "%" : "--"}</td>
         <td style="max-width:300px;font-size:12px;color:var(--muted)">${dec.reasoning || ""}</td>
       </tr>`;
     }
@@ -360,7 +360,7 @@ function _renderAnalysisResults(data) {
             <span class="hf-signal-agent">${agentKey}</span>
             <span class="hf-signal-badge hf-action-badge ${s.toLowerCase()}">${s}</span>
           </div>
-          <div class="hf-signal-confidence">${ticker} · Confidence: ${signal.confidence ? (signal.confidence * 100).toFixed(0) + "%" : "N/A"}</div>
+          <div class="hf-signal-confidence">${ticker} · Confidence: ${(signal.confidence !== undefined && signal.confidence !== null) ? (signal.confidence * 1).toFixed(0) + "%" : "N/A"}</div>
           <div class="hf-signal-reasoning">${reasoning}</div>`;
         card.addEventListener("click", () => card.classList.toggle("expanded"));
         container.appendChild(card);
