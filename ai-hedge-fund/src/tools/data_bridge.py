@@ -11,6 +11,8 @@ import contextlib
 import json
 import logging
 import re
+import contextlib
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -113,7 +115,21 @@ def get_prices(ticker: str, start_date: str, end_date: str, api_key: str = None)
 
     yf_sym = _yf_ticker(ticker)
     try:
-        df = yf.download(yf_sym, start=start_date, end=end_date, progress=False, auto_adjust=True)
+        # We suppress stderr because yfinance prints "1 Failed download" messages 
+        # even when we handle the empty result gracefully.
+        with open(os.devnull, 'w') as devnull:
+            with contextlib.redirect_stderr(devnull):
+                df = yf.download(yf_sym, start=start_date, end=end_date, progress=False, auto_adjust=True)
+        
+        # If the range fetch fails or is empty, try 'max' period for recently listed stocks
+        if df.empty:
+            with open(os.devnull, 'w') as devnull:
+                with contextlib.redirect_stderr(devnull):
+                    df = yf.download(yf_sym, period="max", progress=False, auto_adjust=True)
+            if not df.empty:
+                # Filter to requested range locally
+                df = df[start_date:end_date]
+
         if df.empty:
             return []
 

@@ -92,13 +92,13 @@ class AgentProgress:
             # Create the status text with appropriate styling
             if status.lower() == "done":
                 style = Style(color="green", bold=True)
-                symbol = "✓"
+                symbol = "[v]"
             elif status.lower() == "error":
                 style = Style(color="red", bold=True)
-                symbol = "✗"
+                symbol = "[x]"
             else:
                 style = Style(color="yellow")
-                symbol = "⋯"
+                symbol = "..."
 
             agent_display = self._get_display_name(agent_name)
             status_text = Text()

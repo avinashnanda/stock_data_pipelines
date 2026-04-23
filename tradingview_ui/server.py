@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import argparse
 import contextlib
-import json
+import logging
 import math
 import mimetypes
 import os
@@ -11,6 +11,10 @@ import queue
 import sys
 import threading
 import urllib.request
+import yfinance as yf
+
+# Silence yfinance logger to avoid noisy terminal errors
+logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -20,8 +24,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+import json
 import pandas as pd
-import yfinance as yf
 
 try:
     import duckdb
@@ -523,6 +527,21 @@ class YFinanceSourceAdapter(SourceAdapter):
 
         payloads: dict[str, dict[str, Any]] = {}
         if df.empty:
+            # Fallback for recently listed stocks: try fetching 'max' for each record
+            for record in records:
+                try:
+                    df_max = yf.download(
+                        tickers=[record.yfinance_symbol],
+                        period="max",
+                        interval="1d",
+                        progress=False,
+                        auto_adjust=False,
+                        threads=False,
+                    )
+                    if not df_max.empty:
+                        payloads[self._normalize_symbol_key(record.tv_symbol)] = self._quote_payload_from_df(record, df_max)
+                except Exception:
+                    pass
             return payloads
 
         if len(records) == 1 and not isinstance(df.columns, pd.MultiIndex):
@@ -610,7 +629,7 @@ class YFinanceSourceAdapter(SourceAdapter):
             start = max(start - min(buffer, max_span), datetime(2000, 1, 1, tzinfo=timezone.utc))
             end = min(max(end + timedelta(days=1), start + timedelta(days=2)), now_utc + timedelta(days=1))
 
-        return yf.download(
+        df = yf.download(
             tickers=record.yfinance_symbol,
             start=start.strftime("%Y-%m-%d"),
             end=end.strftime("%Y-%m-%d"),
@@ -619,6 +638,22 @@ class YFinanceSourceAdapter(SourceAdapter):
             auto_adjust=False,
             threads=False,
         )
+
+        if df.empty:
+            # Fallback for recently listed stocks: try period="max"
+            df = yf.download(
+                tickers=record.yfinance_symbol,
+                period="max",
+                interval=interval,
+                progress=False,
+                auto_adjust=False,
+                threads=False,
+            )
+            # Filter locally to requested range
+            if not df.empty:
+                df = df[start.strftime("%Y-%m-%d"):end.strftime("%Y-%m-%d")]
+
+        return df
 
     def _resolve_record(self, symbol: str) -> SymbolRecord:
         cleaned = symbol.strip().upper()

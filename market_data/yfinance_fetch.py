@@ -2,6 +2,9 @@
 from datetime import date, timedelta
 from typing import List
 
+import contextlib
+import os
+import sys
 import time
 import pandas as pd
 import yfinance as yf
@@ -48,14 +51,40 @@ def fetch_ohlcv_range(symbol: str, start_d: date, end_d: date, freq: str = "D") 
         for attempt in range(1, RETRY_ATTEMPTS + 1):
             try:
                 # yfinance 'end' is exclusive; add +1 day to be safe
-                df = ticker.history(
-                    start=current_start.strftime("%Y-%m-%d"),
-                    end=(current_end + timedelta(days=1)).strftime("%Y-%m-%d"),
-                    interval=interval,
-                )
+                with open(os.devnull, 'w') as devnull:
+                    with contextlib.redirect_stderr(devnull):
+                        df = ticker.history(
+                            start=current_start.strftime("%Y-%m-%d"),
+                            end=(current_end + timedelta(days=1)).strftime("%Y-%m-%d"),
+                            interval=interval,
+                        )
+                
+                # If we get no data for this specific chunk, it might be before listing.
+                # Try fetching 'max' to see if there's ANY data available at all.
+                if df.empty:
+                    with open(os.devnull, 'w') as devnull:
+                        with contextlib.redirect_stderr(devnull):
+                            max_df = ticker.history(period="max", interval=interval)
+                    if not max_df.empty:
+                        # Filter the max_df to our current chunk range
+                        df = max_df[(max_df.index.date >= current_start) & (max_df.index.date <= current_end)]
+                
                 df_chunk = df
                 break
             except Exception as e:
+                err_msg = str(e).lower()
+                # If the error suggests no data exists for this range, try period="max"
+                if "no price data found" in err_msg or "delisted" in err_msg or "data doesn't exist" in err_msg:
+                    try:
+                        with open(os.devnull, 'w') as devnull:
+                            with contextlib.redirect_stderr(devnull):
+                                max_df = ticker.history(period="max", interval=interval)
+                        if not max_df.empty:
+                            df_chunk = max_df[(max_df.index.date >= current_start) & (max_df.index.date <= current_end)]
+                            break
+                    except Exception:
+                        pass
+                
                 log.error(
                     f"{symbol} [{freq}] error fetching chunk {current_start} -> {current_end} "
                     f"(attempt {attempt}/{RETRY_ATTEMPTS}): {e}"

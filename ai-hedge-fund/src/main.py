@@ -1,4 +1,18 @@
 import sys
+import io
+
+# Fix encoding issues on Windows
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        # Fallback for Python < 3.7
+        import codecs
+        if sys.stdout.encoding != 'utf-8':
+            sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer, 'strict')
+        if sys.stderr.encoding != 'utf-8':
+            sys.stderr = codecs.getwriter("utf-8")(sys.stderr.buffer, 'strict')
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
