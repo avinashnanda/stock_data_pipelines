@@ -79,7 +79,7 @@ async function startPythonBackend() {
   } else {
     // ── Dev mode – run server.py directly ──
     const projectRoot = path.resolve(__dirname, "..");
-    const serverScript = path.join(projectRoot, "tradingview_ui", "server.py");
+    const serverScript = path.join(projectRoot, "tradingview_ui", "server", "app.py");
 
     // Prefer the project's virtual environment Python if it exists
     const fs = require("fs");

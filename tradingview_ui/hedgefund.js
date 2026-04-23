@@ -18,7 +18,7 @@ let _hfInitialized = false;
 let _hfSelectedAnalysts = new Set();
 let _hfBacktestChart = null;
 
-function $(id) { return document.getElementById(id); }
+// $ helper provided by js/utils.js
 
 /* ── Init ─────────────────────────────────────────────────────────────────── */
 

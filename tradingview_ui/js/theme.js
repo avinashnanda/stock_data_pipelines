@@ -1,13 +1,17 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   TradingView UI — Master stylesheet
-   Imports all modular CSS partials in dependency order.
+   THEME — Theme toggle and application
    ═══════════════════════════════════════════════════════════════════════════ */
-@import url("css/base.css");
-@import url("css/toolbar.css");
-@import url("css/layout.css");
-@import url("css/watchlist.css");
-@import url("css/screener.css");
-@import url("css/modal.css");
-@import url("css/news.css");
-@import url("css/hedgefund.css");
-@import url("css/responsive.css");
+
+function applyShellTheme(theme) {
+  document.body.dataset.theme = theme;
+  $("theme-toggle").textContent = theme === "dark" ? "Day Mode" : "Night Mode";
+}
+
+async function toggleTheme() {
+  currentTheme = currentTheme === "dark" ? "light" : "dark";
+  window.localStorage.setItem("tradingview_ui_theme", currentTheme);
+  applyShellTheme(currentTheme);
+  if (widget) {
+    await widget.changeTheme(currentTheme);
+  }
+}

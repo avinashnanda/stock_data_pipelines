@@ -1,0 +1,107 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYOUT — Shell, workspace grid, chart area, right panel, resizer
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+}
+
+.workspace {
+  --watchlist-width: 320px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--watchlist-width);
+  gap: 0;
+  min-height: 0;
+}
+
+.chart-shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.chart-card {
+  padding: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+
+#tv_chart_container {
+  height: calc(100vh - 117px);
+  min-height: 620px;
+  overflow: hidden;
+}
+
+.right-panel {
+  display: grid;
+  grid-template-rows: 1fr;
+  min-width: 0;
+  border-left: 1px solid var(--panel-border);
+  background: var(--panel);
+  position: relative;
+  overflow: visible;
+}
+
+body.watchlist-collapsed .workspace {
+  grid-template-columns: minmax(0, 1fr) 44px;
+}
+
+body.watchlist-collapsed .right-panel {
+  border-left-color: var(--panel-border);
+}
+
+/* ── Watchlist Resizer ── */
+.watchlist-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 100;
+  background-color: transparent;
+  transition: background-color 0.2s ease;
+}
+.watchlist-resizer:hover, .watchlist-resizer.dragging {
+  background-color: var(--accent);
+}
+
+/* ── Rail toggle ── */
+.watchlist-rail-toggle {
+  position: absolute;
+  top: 12px;
+  left: -22px;
+  z-index: 20;
+  width: 22px;
+  height: 44px;
+  border: 1px solid var(--panel-border);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: -3px 0 10px rgba(15, 23, 42, 0.12);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  padding: 0;
+}
+
+.watchlist-rail-toggle::after {
+  content: "‹";
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1;
+  color: currentColor;
+}
+
+.watchlist-rail-toggle:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
