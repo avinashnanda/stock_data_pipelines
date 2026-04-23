@@ -11,3 +11,7 @@ trading_view_advanced_charts*
 node_modules
 *slack_utils*
 .env
+user_data/
+python_dist/
+build/
+apps/desktop_app/dist/

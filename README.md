@@ -1,0 +1,145 @@
+# Stock Data Pipelines
+
+A comprehensive, production-grade Stock research, screening, announcements, hedge fund AI insights, and charting platform. This repository provides both a web application and a packaged Electron-based desktop application.
+
+---
+
+## 🏗️ Modules Overview
+
+This monorepo is broken down into distinct apps and packages:
+
+### Apps
+- **`web_app`**: The primary user-facing product. A TradingView-style interface that integrates charting, news, screeners, and AI-driven hedge fund analysis. Powered by a Python `ThreadingHTTPServer` backend.
+- **`desktop_app`**: An Electron wrapper for the `web_app`, providing a native desktop experience with bundled Python backend support.
+
+### Packages
+- **`hedge_fund_engine`**: Provides AI agents (Warren Buffett, Bill Ackman, Cathie Wood, etc.) that analyze stock portfolios, technicals, fundamentals, and news sentiment using LLMs (OpenAI, Anthropic, Ollama, LMStudio).
+- **`announcement_fetcher`**: Background service that fetches live PDF announcements and parses them into sentiment summaries.
+- **`screener_client`**: Asynchronously scrapes deep fundamental data and schedules from Screener.in.
+- **`shared_db`**: Centralized DuckDB management and schema utilities used across all modules.
+
+---
+
+## 📂 Folder Structure
+
+```text
+stock_data_pipelines/
+├── apps/
+│   ├── web_app/              # Main UI, CSS/JS, and Python server backend
+│   └── desktop_app/          # Electron wrapper, main.js, preload.js
+├── packages/
+│   ├── announcement_fetcher/ # PDF parsing & sentiment analysis
+│   ├── hedge_fund_engine/    # AI agent definitions and backtesting
+│   ├── screener_client/      # Data scraping and API parsers
+│   └── shared_db/            # DuckDB utilities and schema
+├── config/
+│   ├── paths.py              # Centralized path logic (handles dev & PyInstaller frozen modes)
+│   └── settings.py           # Application configurations
+├── scripts/
+│   └── build/                # Scripts to package Python and build the Desktop installer
+├── data/                     # Seed data and CSVs
+├── logs/                     # Runtime logs
+├── notebooks/                # Experimental Jupyter notebooks (Excluded from builds)
+├── tests/                    # Unit and integration tests
+├── requirements.txt          # Consolidated pip dependencies
+└── pyproject.toml            # Python package definition
+```
+
+---
+
+## 🚀 How to Install
+
+Ensure you have Python 3.10+ and Node.js installed.
+
+1. **Clone the repository**:
+   ```bash
+   git clone <repo-url>
+   cd stock_data_pipelines
+   ```
+
+2. **Set up Python Virtual Environment**:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+3. **Install Desktop App Dependencies** (Optional, if using Electron):
+   ```bash
+   cd apps/desktop_app
+   npm install
+   cd ../..
+   ```
+
+---
+
+## 🌐 How to Run Web App
+
+You can run the web application directly in your browser without Electron:
+
+```bash
+python -m apps.web_app.server.app --port 9032
+```
+Then, open your browser and navigate to `http://127.0.0.1:9032`.
+
+---
+
+## 🖥️ How to Run Desktop App
+
+To run the full native desktop experience (which automatically spins up the Python backend):
+
+```bash
+cd apps/desktop_app
+npm start
+```
+
+---
+
+## 📦 How to Build Desktop EXE
+
+To create a standalone, distributable Windows `.exe` (or Mac `.dmg`):
+
+1. **Ensure all requirements are installed** in your virtual environment (including `pyinstaller`).
+2. **Run the master build script**:
+   ```bash
+   python scripts/build/build_desktop.py
+   ```
+   
+This script orchestrates:
+1. Packaging the Python backend into `python_dist/stock_backend` via PyInstaller.
+2. Installing `npm` dependencies.
+3. Running `electron-builder` to bundle the app and the Python sidecar.
+
+The final installer will be located in `apps/desktop_app/dist/`.
+
+---
+
+## ⚙️ Configuration & Environment
+
+- **Paths**: The `config/paths.py` handles dynamic resolution. In development, databases are stored in the root `data/` or `logs/` directories. In production (packaged mode), it uses OS-standard AppData directories (e.g., `%LOCALAPPDATA%/StockDataPipelines`).
+- **Environment Variables**: Use `.env` at the root of the project to define LLM API keys (e.g., `OPENAI_API_KEY`). Alternatively, the UI provides an interface to save API keys to the local DuckDB.
+
+---
+
+## 🗄️ Database Setup
+
+The project uses **DuckDB** for local storage (Fundamentals, Announcements, Screener JSON dumps, and Hedge Fund configs). 
+
+Databases are auto-initialized dynamically when queried. The schemas are located in `packages/shared_db/db_schema.sql` and managed by `db_utils.py`. No standalone database server is required.
+
+---
+
+## 🛠️ Troubleshooting
+
+- **ModuleNotFoundError**: Ensure you are running commands from the root directory and using the `python -m` syntax (e.g., `python -m apps.web_app.server.app`).
+- **Port 9032 is blocked**: If Windows blocks the socket, run the server on a different port: `python -m apps.web_app.server.app --port 9040`.
+- **PyInstaller Build Fails**: Make sure your `.venv` is activated. Verify that paths in `scripts/build/package_python.py` correctly point to the `apps` and `packages` directories.
+- **Missing Data**: Verify that `data/all_stocks_combined.csv` exists, as it is used to seed the initial universe of symbols.
+
+---
+
+## 🔮 Future Improvements
+
+- Fully migrate all background task queues to a lightweight job processor (e.g., Celery/Redis or APScheduler).
+- Add robust unit testing and CI/CD pipelines.
+- Containerize the application (Docker) for cloud deployment of the Web UI.
