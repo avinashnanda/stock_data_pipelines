@@ -1,0 +1,23 @@
+    <div id="symbol-modal" class="modal-backdrop hidden" aria-hidden="true">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="symbol-modal-title">
+        <div class="modal-header">
+          <div>
+            <h2 id="symbol-modal-title">Add Symbol To Watchlist</h2>
+            <p>Search by symbol or company name.</p>
+          </div>
+          <button id="symbol-modal-close" type="button" class="modal-close" aria-label="Close">x</button>
+        </div>
+
+        <div class="modal-body">
+          <input
+            id="symbol-search-input"
+            class="modal-search"
+            type="text"
+            placeholder="Search RELIANCE, TCS, Infosys..."
+            autocomplete="off"
+          />
+          <div id="symbol-search-status" class="modal-status">Start typing to search symbols.</div>
+          <div id="symbol-search-results" class="symbol-results"></div>
+        </div>
+      </div>
+    </div>

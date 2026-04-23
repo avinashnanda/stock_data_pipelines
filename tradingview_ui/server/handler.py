@@ -1,14 +1,34 @@
 """HTTP request handler — thin dispatcher that delegates to route modules."""
 from __future__ import annotations
-import json, mimetypes
+import json, mimetypes, re
 from datetime import datetime
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler
 from typing import Any
 from urllib.parse import parse_qs, urlparse
-from .constants import APP_DIR, TRADINGVIEW_DIR
+from .constants import APP_DIR, TRADINGVIEW_DIR, SERVER_LOG_PATH
 from .utils import sanitize_json_value
 from . import routes_core, routes_announcements, routes_hedgefund
+
+# ── Regex for <!-- @include partials/xxx.html --> directives ─────────────────
+_INCLUDE_RE = re.compile(r'<!--\s*@include\s+([\w./\-]+)\s*-->')
+_assembled_index_cache: bytes | None = None
+
+def _assemble_index_html() -> bytes:
+    """Read index.html and recursively replace @include markers with partial file contents."""
+    global _assembled_index_cache
+    if _assembled_index_cache is not None:
+        return _assembled_index_cache
+    index_path = APP_DIR / "index.html"
+    html = index_path.read_text(encoding="utf-8")
+    def _replace(match):
+        partial_path = APP_DIR / match.group(1)
+        if partial_path.exists():
+            return partial_path.read_text(encoding="utf-8")
+        return match.group(0)  # leave marker if file missing
+    html = _INCLUDE_RE.sub(_replace, html)
+    _assembled_index_cache = html.encode("utf-8")
+    return _assembled_index_cache
 
 class AppRequestHandler(SimpleHTTPRequestHandler):
     server_version = "TradingViewUI/0.1"
@@ -81,8 +101,16 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
             self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
 
     def _serve_static(self, raw_path):
-        if raw_path in {"", "/"}: file_path = APP_DIR / "index.html"
-        elif raw_path.startswith("/charting_library/"): file_path = TRADINGVIEW_DIR / raw_path.lstrip("/")
+        # index.html is assembled from partials at first request then cached
+        if raw_path in {"", "/"}:
+            body = _assemble_index_html()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if raw_path.startswith("/charting_library/"): file_path = TRADINGVIEW_DIR / raw_path.lstrip("/")
         elif raw_path.startswith("/datafeeds/"): file_path = TRADINGVIEW_DIR / raw_path.lstrip("/")
         else: file_path = APP_DIR / raw_path.lstrip("/")
         if not file_path.exists() or file_path.is_dir():
@@ -122,7 +150,7 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         log_line = f"[{datetime.now().isoformat()}] [tradingview-ui] {self.address_string()} - {format % args}\n"
         try:
-            with open(APP_DIR / "server.log", "a") as f:
+            with open(SERVER_LOG_PATH, "a") as f:
                 f.write(log_line)
         except Exception:
             pass

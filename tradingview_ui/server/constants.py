@@ -5,13 +5,14 @@ from __future__ import annotations
 from datetime import timedelta
 
 from paths import (  # noqa: E402
-    UI_DIR, TRADINGVIEW_CHARTS_DIR, SCREENER_DB,
+    UI_DIR, TRADINGVIEW_CHARTS_DIR, SCREENER_DB, LOGS_DIR
 )
 
 # ── Path aliases ──────────────────────────────────────────────────────────────
 APP_DIR = UI_DIR
 TRADINGVIEW_DIR = TRADINGVIEW_CHARTS_DIR
 SCREENER_DB_PATH = SCREENER_DB
+SERVER_LOG_PATH = LOGS_DIR / "server.log"
 SCREENER_SOURCE_BASE = "https://www.screener.in/company"
 
 # ── Supported resolutions & defaults ─────────────────────────────────────────

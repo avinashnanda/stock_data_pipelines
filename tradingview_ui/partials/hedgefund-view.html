@@ -1,0 +1,152 @@
+          <!-- ═══════ Hedge Fund View ═══════ -->
+          <div id="hedgefund-view" class="view-pane hidden">
+            <div class="hf-container">
+              <!-- Internal Tabs -->
+              <div class="hf-internal-tabs">
+                <button class="hf-internal-tab active" data-hf-tab="analysis">Analysis</button>
+                <button class="hf-internal-tab" data-hf-tab="backtest">Backtesting</button>
+                <button class="hf-internal-tab" data-hf-tab="settings">Settings</button>
+              </div>
+
+              <!-- Tab: Analysis -->
+              <div id="hf-pane-analysis" class="hf-pane">
+                <div class="hf-config-bar">
+                  <div class="hf-config-group">
+                    <label>Tickers</label>
+                    <input id="hf-tickers" type="text" placeholder="RELIANCE, TCS, INFY" />
+                  </div>
+                  <div class="hf-config-group">
+                    <label>LLM Model</label>
+                    <select id="hf-model-select"><option value="">Loading...</option></select>
+                  </div>
+                  <div class="hf-config-actions">
+                    <button id="hf-run-btn" class="primary-button">▶ Run Analysis</button>
+                  </div>
+                </div>
+
+                <div class="hf-analyst-section">
+                  <div class="hf-analyst-toolbar">
+                    <h3>Select Analysts</h3>
+                    <div>
+                      <button id="hf-select-all" class="secondary-button">Select All</button>
+                      <button id="hf-deselect-all" class="secondary-button">Deselect All</button>
+                    </div>
+                  </div>
+                  <div id="hf-analyst-grid" class="hf-analyst-grid"></div>
+                </div>
+
+                <div id="hf-progress-panel" class="hf-progress hidden">
+                  <h3>Analysis Progress</h3>
+                  <div id="hf-progress-list" class="hf-progress-list"></div>
+                </div>
+
+                <div id="hf-results" class="hf-results hidden">
+                  <h3>Trading Decisions</h3>
+                  <div id="hf-decision-table-wrap"></div>
+                  <h3 style="margin-top:24px">Analyst Signals</h3>
+                  <div id="hf-signals-container" class="hf-signals-container"></div>
+                </div>
+              </div>
+
+              <!-- Tab: Backtesting -->
+              <div id="hf-pane-backtest" class="hf-pane hidden">
+                <div class="hf-config-bar">
+                  <div class="hf-config-group">
+                    <label>From</label>
+                    <input id="hf-start-date" type="date" />
+                  </div>
+                  <div class="hf-config-group">
+                    <label>To</label>
+                    <input id="hf-end-date" type="date" />
+                  </div>
+                  <div class="hf-config-group">
+                    <label>Initial Capital</label>
+                    <input id="hf-initial-cash" type="number" value="100000" step="10000" />
+                  </div>
+                  <div class="hf-config-actions">
+                    <button id="hf-backtest-btn" class="primary-button">📊 Run Backtest</button>
+                  </div>
+                </div>
+                
+                <div id="hf-backtest-progress" class="hf-progress hidden">
+                  <h3>Backtest Progress</h3>
+                  <div id="hf-backtest-progress-list" class="hf-progress-list"></div>
+                </div>
+
+                <div id="hf-backtest-results" class="hf-backtest hidden">
+                  <h3>Backtest Results</h3>
+                  <div class="hf-metrics-grid" id="hf-metrics-grid"></div>
+                  <div class="hf-backtest-chart-wrap">
+                    <canvas id="hf-backtest-chart"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab: Settings -->
+              <div id="hf-pane-settings" class="hf-pane hidden">
+                <div class="hf-settings-layout">
+                  <div class="hf-settings-tabs-vertical">
+                    <button class="hf-settings-tab-v active" data-vtab="api-keys">API Keys</button>
+                    <button class="hf-settings-tab-v" data-vtab="ollama">Ollama</button>
+                    <button class="hf-settings-tab-v" data-vtab="lmstudio">LMStudio</button>
+                    <button class="hf-settings-tab-v" data-vtab="custom">Custom</button>
+                  </div>
+                  <div class="hf-settings-content">
+                    <!-- API Keys -->
+                    <div id="hf-vtab-api-keys" class="hf-vpane">
+                      <h3>API Keys</h3>
+                      <p class="hf-key-desc">API keys for cloud LLM providers. Stored in local DuckDB.</p>
+                      <div id="hf-api-keys-list" class="hf-key-list"></div>
+                    </div>
+                    <!-- Ollama -->
+                    <div id="hf-vtab-ollama" class="hf-vpane hidden">
+                      <h3>Ollama</h3>
+                      <div class="hf-ollama-status-card">
+                        <div class="hf-status-row">
+                          <span id="hf-ollama-indicator" class="status-dot"></span>
+                          <span id="hf-ollama-status-text">Checking...</span>
+                          <button id="hf-ollama-refresh" class="secondary-button" style="margin-left:auto">Refresh</button>
+                        </div>
+                      </div>
+                      <div class="hf-ollama-models">
+                        <h4>Installed Models</h4>
+                        <div id="hf-ollama-model-list"></div>
+                      </div>
+                      <div class="hf-ollama-download">
+                        <h4>Download Model</h4>
+                        <div style="display:flex;gap:8px">
+                          <input id="hf-ollama-pull-name" placeholder="e.g. llama3.1" style="flex:1" />
+                          <button id="hf-ollama-pull-btn" class="primary-button">Pull</button>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- LMStudio -->
+                    <div id="hf-vtab-lmstudio" class="hf-vpane hidden">
+                      <h3>LMStudio</h3>
+                      <div class="hf-config-row">
+                        <input id="hf-lmstudio-url" value="http://localhost:1234/v1" style="flex:1" />
+                        <button id="hf-lmstudio-test" class="secondary-button">Test</button>
+                      </div>
+                      <div class="hf-status-row" style="margin-top:8px">
+                        <span id="hf-lmstudio-indicator" class="status-dot"></span>
+                        <span id="hf-lmstudio-status-text">Not tested</span>
+                      </div>
+                      <div id="hf-lmstudio-model-list" style="margin-top:12px"></div>
+                    </div>
+                    <!-- Custom -->
+                    <div id="hf-vtab-custom" class="hf-vpane hidden">
+                      <h3>Custom Endpoints</h3>
+                      <div id="hf-custom-endpoint-list"></div>
+                      <div class="hf-custom-add-form">
+                        <input id="hf-custom-label" placeholder="Label" />
+                        <input id="hf-custom-url" placeholder="URL" />
+                        <input id="hf-custom-apikey" type="password" placeholder="Key (optional)" />
+                        <input id="hf-custom-model" placeholder="Model Name" />
+                        <button id="hf-custom-add-btn" class="primary-button">Add</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>

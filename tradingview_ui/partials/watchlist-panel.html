@@ -1,0 +1,36 @@
+        <aside class="right-panel">
+          <div id="watchlist-resizer" class="watchlist-resizer"></div>
+          <button id="watchlist-rail-toggle" type="button" class="watchlist-rail-toggle hidden" aria-label="Show watchlist" title="Show watchlist">&gt;&gt;</button>
+          <section class="watchlist-panel">
+            <div class="watchlist-topbar">
+              <div class="watchlist-title-wrap">
+                <button id="watchlist-flag" type="button" class="watchlist-flag" aria-label="watchlist marker"></button>
+                <div class="watchlist-title-stack">
+                  <select id="watchlist-select" class="watchlist-select"></select>
+                  <span id="watchlist-subtitle" class="watchlist-subtitle">Custom synced watchlist</span>
+                </div>
+              </div>
+              <div class="watchlist-actions">
+                <button id="watchlist-panel-toggle" type="button" class="icon-button" aria-label="Hide watchlist" title="Hide watchlist">&lt;&lt;</button>
+                <button id="watchlist-add" type="button" class="icon-button" title="Add symbol">+</button>
+                <button id="new-watchlist" type="button" class="icon-button icon-button-text" title="New watchlist">New</button>
+              </div>
+            </div>
+            <div id="watchlist-stats" class="watchlist-stats"></div>
+            <div class="watchlist-header">
+              <span>Symbol</span>
+              <span>Last</span>
+              <span>Chg</span>
+              <span>Chg%</span>
+            </div>
+            <div class="watchlist-section">
+              <span id="watchlist-section-label">Active List</span>
+              <span id="watchlist-count" class="watchlist-count">0</span>
+            </div>
+            <div id="watchlist" class="watchlist"></div>
+            <div class="active-stock-news-section" style="padding: 12px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; height: 300px;">
+              <div id="watchlist-section-label" style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 8px;">LATEST ANNOUNCEMENTS</div>
+              <div id="active-stock-news" class="active-stock-news-feed" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+          </section>
+        </aside>
