@@ -6,14 +6,32 @@
               <div class="watchlist-title-wrap">
                 <button id="watchlist-flag" type="button" class="watchlist-flag" aria-label="watchlist marker"></button>
                 <div class="watchlist-title-stack">
-                  <select id="watchlist-select" class="watchlist-select"></select>
+                  <div class="watchlist-dropdown-container">
+                    <button id="watchlist-dropdown-trigger" type="button" class="watchlist-select-trigger">
+                      <span id="active-watchlist-name">Loading...</span>
+                      <svg class="dropdown-caret" width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                    <div id="watchlist-dropdown-menu" class="watchlist-dropdown-menu hidden">
+                      <div class="menu-item" id="wl-menu-copy">Make a copy...</div>
+                      <div class="menu-item" id="wl-menu-rename">Rename</div>
+                      <div class="menu-item" id="wl-menu-clear">Clear list</div>
+                      <div class="menu-item" id="wl-menu-delete" style="color: var(--danger);">Delete list</div>
+                      <div class="menu-separator"></div>
+                      <div id="watchlist-list-container">
+                        <!-- Dynamic list of watchlists will be injected here -->
+                      </div>
+                      <div class="menu-separator"></div>
+                      <div class="menu-item" id="wl-menu-new">Create new list...</div>
+                    </div>
+                  </div>
                   <span id="watchlist-subtitle" class="watchlist-subtitle">Custom synced watchlist</span>
                 </div>
               </div>
               <div class="watchlist-actions">
                 <button id="watchlist-panel-toggle" type="button" class="icon-button" aria-label="Hide watchlist" title="Hide watchlist">&lt;&lt;</button>
                 <button id="watchlist-add" type="button" class="icon-button" title="Add symbol">+</button>
-                <button id="new-watchlist" type="button" class="icon-button icon-button-text" title="New watchlist">New</button>
               </div>
             </div>
             <div id="watchlist-stats" class="watchlist-stats"></div>

@@ -107,7 +107,8 @@ async function loadHFAgents() {
     });
   } catch (e) {
     console.error("Failed to load agents:", e);
-    if ($("hf-analyst-grid")) $("hf-analyst-grid").innerHTML = '<div style="color:var(--muted);padding:12px">Could not load analysts.</div>';
+    const grid = $("hf-analyst-grid");
+    if (grid) grid.innerHTML = '<div style="color:var(--muted);padding:12px">Could not load analysts. Please check if backend is running correctly.</div>';
   }
 }
 
@@ -141,6 +142,8 @@ async function loadHFModels() {
     }
   } catch (e) {
     console.error("Failed to load models:", e);
+    const sel = $("hf-model-select");
+    if (sel) sel.innerHTML = '<option value="">Error loading models</option>';
   }
 }
 

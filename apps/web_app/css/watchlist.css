@@ -48,16 +48,98 @@ body.watchlist-collapsed .watchlist-panel {
   flex: 0 0 auto;
 }
 
-.watchlist-select {
-  appearance: none;
-  border: 0;
+.watchlist-dropdown-container {
+  position: relative;
+  min-width: 0;
+}
+
+.watchlist-select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   background: transparent;
+  border: 0;
   color: var(--text);
   font: inherit;
   font-weight: 600;
   font-size: 14px;
-  min-width: 0;
   padding: 0;
+  cursor: pointer;
+  min-width: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.watchlist-select-trigger:hover {
+  color: var(--accent);
+}
+
+.dropdown-caret {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.watchlist-dropdown-container.open .dropdown-caret {
+  transform: rotate(180deg);
+}
+
+.watchlist-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 240px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  padding: 4px 0;
+  overflow: hidden;
+  animation: dropdownEnter 0.2s ease-out;
+}
+
+@keyframes dropdownEnter {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.menu-item:hover {
+  background: var(--panel-soft);
+  color: var(--accent);
+}
+
+.menu-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.menu-item.active::after {
+  content: "✓";
+  font-size: 12px;
+}
+
+.menu-separator {
+  height: 1px;
+  background: var(--panel-border);
+  margin: 4px 0;
+}
+
+.menu-shortcut {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: normal;
 }
 
 .watchlist-subtitle {

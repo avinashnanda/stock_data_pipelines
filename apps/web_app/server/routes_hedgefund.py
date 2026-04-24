@@ -31,33 +31,64 @@ try:
 except ImportError:
     _HF_DB_AVAILABLE = False
 
+# Lazy-load heavy dependencies to speed up initial response
+_CACHED_AGENTS = None
+_CACHED_MODELS = None
+_HF_ENGINE_AVAILABLE = None
 
-def handle_agents(handler) -> None:
+def _ensure_engine_available():
+    global _HF_ENGINE_AVAILABLE
+    if _HF_ENGINE_AVAILABLE is not None:
+        return _HF_ENGINE_AVAILABLE
     try:
         from src.utils.analysts import get_agents_list
-        handler._send_json({"agents": get_agents_list()})
-    except ImportError as ie:
-        handler._send_json({"error": f"Hedge fund module not available: {ie}"}, status=HTTPStatus.SERVICE_UNAVAILABLE)
+        from src.llm.models import get_models_list
+        _HF_ENGINE_AVAILABLE = True
+    except ImportError:
+        _HF_ENGINE_AVAILABLE = False
+    return _HF_ENGINE_AVAILABLE
+
+
+def handle_agents(handler) -> None:
+    global _CACHED_AGENTS
+    if _CACHED_AGENTS:
+        handler._send_json({"agents": _CACHED_AGENTS})
+        return
+
+    if not _ensure_engine_available():
+        handler._send_json({"error": "Hedge fund module not available"}, status=HTTPStatus.SERVICE_UNAVAILABLE)
+        return
+
+    try:
+        from src.utils.analysts import get_agents_list
+        _CACHED_AGENTS = get_agents_list()
+        handler._send_json({"agents": _CACHED_AGENTS})
+    except Exception as e:
+        handler._send_json({"error": str(e)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
 
 def handle_models(handler) -> None:
+    global _CACHED_MODELS
+    # We cache the core models but always probe local services (with short timeout)
     models = []
-    try:
-        from src.llm.models import get_models_list
-        models.extend(get_models_list())
-    except ImportError:
-        pass
-    # Probe Ollama
+    if _ensure_engine_available():
+        try:
+            from src.llm.models import get_models_list
+            models.extend(get_models_list())
+        except Exception:
+            pass
+
+    # Probe Ollama (short timeout)
     try:
         req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
-        with urllib.request.urlopen(req, timeout=2) as resp:
+        with urllib.request.urlopen(req, timeout=0.5) as resp:
             data = json.loads(resp.read())
             for m in data.get("models", []):
                 models.append({"display_name": f"[Ollama] {m['name']}",
                                "model_name": m["name"], "provider": "Ollama"})
     except Exception:
         pass
-    # Probe LMStudio
+    # Probe LMStudio (short timeout)
     try:
         lms_url = "http://localhost:1234/v1/models"
         if _HF_DB_AVAILABLE:
@@ -66,7 +97,7 @@ def handle_models(handler) -> None:
                 if ep["provider_type"] == "lmstudio":
                     lms_url = ep["base_url"].rstrip("/") + "/models"
                     break
-        with urllib.request.urlopen(lms_url, timeout=2) as resp:
+        with urllib.request.urlopen(lms_url, timeout=0.5) as resp:
             data = json.loads(resp.read())
             for m in data.get("data", []):
                 models.append({"display_name": f"[LMStudio] {m['id']}",
@@ -75,10 +106,13 @@ def handle_models(handler) -> None:
         pass
     # Custom endpoints
     if _HF_DB_AVAILABLE:
-        for cm in hf_get_custom_models():
-            models.append({"display_name": cm["display_name"],
-                           "model_name": cm["model_name"],
-                           "provider": cm["provider"]})
+        try:
+            for cm in hf_get_custom_models():
+                models.append({"display_name": cm["display_name"],
+                               "model_name": cm["model_name"],
+                               "provider": cm["provider"]})
+        except Exception:
+            pass
     handler._send_json({"models": models})
 
 

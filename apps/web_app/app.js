@@ -201,9 +201,36 @@ function bindEvents() {
     });
   });
 
-  $("new-watchlist").addEventListener("click", () => { createNewWatchlist(); });
-  $("watchlist-add").addEventListener("click", () => { openSymbolModal(); });
-  $("watchlist-select").addEventListener("change", () => { switchActiveWatchlist($("watchlist-select").value); });
+  if ($("watchlist-add")) $("watchlist-add").addEventListener("click", () => { openSymbolModal(); });
+  
+  // Custom Dropdown Bindings
+  const wlTrigger = $("watchlist-dropdown-trigger");
+  if (wlTrigger) {
+    wlTrigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleWatchlistDropdown();
+    });
+  }
+
+  if ($("wl-menu-new")) $("wl-menu-new").addEventListener("click", () => { createNewWatchlist(); toggleWatchlistDropdown(false); });
+  if ($("wl-menu-rename")) $("wl-menu-rename").addEventListener("click", () => { renameActiveWatchlist(); toggleWatchlistDropdown(false); });
+  if ($("wl-menu-clear")) $("wl-menu-clear").addEventListener("click", () => { clearActiveWatchlist(); toggleWatchlistDropdown(false); });
+  if ($("wl-menu-copy")) $("wl-menu-copy").addEventListener("click", () => { copyActiveWatchlist(); toggleWatchlistDropdown(false); });
+  if ($("wl-menu-delete")) $("wl-menu-delete").addEventListener("click", () => { deleteActiveWatchlist(); toggleWatchlistDropdown(false); });
+
+  // Close dropdown on outside click
+  window.addEventListener("click", () => {
+    if (typeof toggleWatchlistDropdown === "function") toggleWatchlistDropdown(false);
+  });
+
+  // Global Shortcuts
+  window.addEventListener("keydown", (e) => {
+    if (e.shiftKey && e.key.toUpperCase() === "W") {
+      e.preventDefault();
+      toggleWatchlistDropdown();
+    }
+  });
+
   $("theme-toggle").addEventListener("click", () => { toggleTheme().catch((error) => console.error(error)); });
   $("symbol-modal-close").addEventListener("click", () => { closeSymbolModal(); });
 

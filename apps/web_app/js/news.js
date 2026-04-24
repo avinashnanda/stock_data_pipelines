@@ -9,6 +9,7 @@ let newsTimeAgoTimer = null;
 let newsClockTimer = null;
 let latestFetchedAt = null;
 let cachedAnnouncements = [];
+let watchlistNewsCache = [];
 
 /* Sound mode: 'off' | 'all' | 'watchlist' */
 let soundMode = 'off';
@@ -404,14 +405,24 @@ function renderRecentArrivals(announcements) {
   // Filter announcements for watchlist
   const watchlistAnnouncements = announcements.filter(a => watchlistSymbols.includes(a.symbol));
 
-  if (watchlistAnnouncements.length === 0) {
+  // Merge with cache to preserve history if the new batch has fewer items
+  // We prioritize newer items from the current fetch
+  if (watchlistAnnouncements.length > 0) {
+    // Basic deduplication and merging
+    const existingIds = new Set(watchlistAnnouncements.map(a => a.id));
+    const merged = [...watchlistAnnouncements, ...watchlistNewsCache.filter(a => !existingIds.has(a.id))];
+    // Keep only the latest 40 items in cache
+    watchlistNewsCache = merged.sort((a, b) => new Date(b.fetched_at) - new Date(a.fetched_at)).slice(0, 40);
+  }
+
+  if (watchlistNewsCache.length === 0) {
     feed.innerHTML = '<div style="padding: 14px; font-size: 11px; color: var(--muted); text-align: center;">No announcements for watchlist stocks</div>';
     return;
   }
 
   // Clear now that we have data to render
   feed.innerHTML = '';
-  watchlistAnnouncements.slice(0, 20).forEach((item, idx) => {
+  watchlistNewsCache.slice(0, 20).forEach((item, idx) => {
     const displaySymbol = item.symbol || '';
     const titleSnippet = item.title || item.summary || 'Announcement';
     const dateStr = item.broadcast_date || item.fetched_at || '';
@@ -481,7 +492,7 @@ async function refreshNewsView(options = {}) {
     end_date: endEl?.value || "",
     symbol: symbolEl?.value?.toUpperCase() || "",
     sentiments: sentiments.join(","),
-    limit: 50
+    limit: 100
   });
 
   cachedAnnouncements = data.announcements;
@@ -592,14 +603,14 @@ function startNewsPolling() {
     if (currentView === "news") {
       refreshNewsView({ silent: true });
     } else {
-      // If NOT on news tab, we still need to update sidebar stats and arrivals
-      const data = await loadAnnouncements({ limit: 50 });
+      // If NOT on news tab, fetch a larger pool (200) to ensure watchlist coverage in sidebar
+      const data = await loadAnnouncements({ limit: 200 });
       if (data.announcements.length > 0) {
         updateAnnouncementStats(data.stats);
         renderRecentArrivals(data.announcements);
         
-        // Sound alert check (optional but kept for consistency)
-        const latestAnnouncements = data.announcements.slice(0, 5);
+        // Sound alert check
+        const latestAnnouncements = data.announcements.slice(0, 10);
         const maxDate = latestAnnouncements[0].fetched_at;
         if (lastSeenAnnouncementDate && maxDate > lastSeenAnnouncementDate) {
           const item = latestAnnouncements[0];
