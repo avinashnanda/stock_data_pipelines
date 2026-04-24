@@ -41,7 +41,6 @@ stock_data_pipelines/
 ├── logs/                     # Runtime logs
 ├── notebooks/                # Experimental Jupyter notebooks (Excluded from builds)
 ├── tests/                    # Unit and integration tests
-├── requirements.txt          # Consolidated pip dependencies
 └── pyproject.toml            # Python package definition
 ```
 
@@ -49,7 +48,7 @@ stock_data_pipelines/
 
 ## 🚀 How to Install
 
-Ensure you have Python 3.10+ and Node.js installed.
+Ensure you have Python 3.13.6+ and Node.js installed.
 
 1. **Clone the repository**:
    ```bash
@@ -57,12 +56,11 @@ Ensure you have Python 3.10+ and Node.js installed.
    cd stock_data_pipelines
    ```
 
-2. **Set up Python Virtual Environment**:
+2. **Set up Environment with `uv`**:
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   pip install -r requirements.txt
+   uv sync --all-extras
    ```
+   *This automatically creates a virtual environment and installs all dependencies (including dev tools).*
 
 3. **Install Desktop App Dependencies** (Optional, if using Electron):
    ```bash
@@ -78,7 +76,7 @@ Ensure you have Python 3.10+ and Node.js installed.
 You can run the web application directly in your browser without Electron:
 
 ```bash
-python -m apps.web_app.server.app --port 9032
+uv run python -m apps.web_app.server.app --port 9032
 ```
 Then, open your browser and navigate to `http://127.0.0.1:9032`.
 

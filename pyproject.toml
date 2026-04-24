@@ -7,7 +7,7 @@ name = "stock_data_pipelines"
 version = "1.0.0"
 description = "Stock research, screening, announcements, and hedge fund AI insights platform."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13.6"
 license = { text = "MIT" }
 authors = [
     { name = "Your Name", email = "your.email@example.com" }
@@ -19,9 +19,12 @@ dependencies = [
     "yfinance",
     "playwright",
     "scikit-learn",
-    "pandas_ta",
+    "pandas-ta",
     "plotly",
+    "torch",
     "langchain",
+    "langchain-community",
+    "langchain-text-splitters",
     "langchain-openai",
     "langchain-anthropic",
     "langchain-groq",
@@ -49,7 +52,9 @@ dependencies = [
     "selenium",
     "webdriver-manager",
     "requests",
-    "slack_sdk"
+    "slack_sdk",
+    "openpyxl",
+    "tqdm"
 ]
 
 [project.optional-dependencies]

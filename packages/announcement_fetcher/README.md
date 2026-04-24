@@ -41,7 +41,7 @@ The module consists of several specialized components:
 2. **Chrome Browser**: Required for Selenium to fetch NSE cookies.
 3. **Environment Variables**:
    - `SLACK_TOKEN`: Required for Slack notifications.
-4. **Dependencies**: Ensure all requirements from the root `requirements.txt` are installed.
+4. **Dependencies**: Ensure all requirements are installed (e.g., `uv sync` from the project root).
 
 ## How to Run
 

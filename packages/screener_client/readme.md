@@ -37,10 +37,10 @@ The system is organized into specialized layers to ensure maintainability and re
 ## 🛠️ Setup & Installation
 
 ### 1. Install Dependencies
-Ensure you have Python 3.9+ installed. Install the required packages:
+Ensure you have Python 3.13.6+ installed. Install the required packages:
 
 ```bash
-pip install -r requirements.txt
+uv sync --all-extras
 ```
 
 ### 2. Generate Input Data
@@ -57,7 +57,7 @@ The scraper requires a CSV file containing stock symbols. Use the project's data
 To start a full scrape of the symbols in your CSV:
 
 ```bash
-python -m screener_client.scrape_from_csv path/to/your/symbols.csv
+uv run python -m screener_client.scrape_from_csv path/to/your/symbols.csv
 ```
 
 ### How it Works (Step-by-Step)

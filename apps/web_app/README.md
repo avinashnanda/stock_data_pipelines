@@ -39,7 +39,7 @@ Located in the `/electron` directory.
 ## 🛠️ Dependencies
 
 ### Python Backend
-Requires Python 3.10+. Main dependencies in `requirements.txt`:
+Requires Python 3.13.6+. Main dependencies in `pyproject.toml`:
 - `duckdb`: High-performance analytical database.
 - `yfinance`: Market data retrieval.
 - `langchain` & `langgraph`: Orchestration for AI agents.
@@ -61,11 +61,9 @@ Requires Python 3.10+. Main dependencies in `requirements.txt`:
 ## 🚀 How to Run
 
 ### Development Mode (Recommended)
-1. **Setup Python Environment**:
+1. **Setup Environment**:
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-   pip install -r requirements.txt
+   uv sync --all-extras
    ```
 2. **Start the Electron App**:
    ```bash
@@ -78,7 +76,7 @@ Requires Python 3.10+. Main dependencies in `requirements.txt`:
 ### Running Backend Independently
 If you only want to work on the web UI:
 ```bash
-python -m server --port 9032
+uv run python -m server --port 9032
 ```
 Then visit `http://127.0.0.1:9032` in your browser.
 
