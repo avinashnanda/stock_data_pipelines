@@ -398,7 +398,11 @@ def analyze_risk_reward(financial_line_items: list, prices: list) -> dict:
                 if prev_close > 0:
                     daily_returns.append((close_prices[i] - prev_close) / prev_close)
             if daily_returns:
-                stdev = statistics.pstdev(daily_returns)  # population stdev
+                # Manual population stdev calculation to avoid statistics module issues in some Python versions
+                n = len(daily_returns)
+                mean = sum(daily_returns) / n
+                variance = sum((x - mean) ** 2 for x in daily_returns) / n
+                stdev = variance ** 0.5
                 if stdev < 0.01:
                     raw_score += 3
                     details.append(f"Low volatility: daily returns stdev {stdev:.2%}")

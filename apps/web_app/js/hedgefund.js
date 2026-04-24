@@ -88,13 +88,18 @@ async function loadHFAgents() {
     grid.innerHTML = "";
     agents.forEach(a => {
       const key = a.key || a.id || a.name;
+      const displayName = a.display_name || a.name || key;
+      const initials = displayName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+      
       _hfSelectedAnalysts.add(key);
       const card = document.createElement("div");
       card.className = "hf-analyst-card selected";
       card.dataset.key = key;
       card.innerHTML = `
+        <div class="hf-check-icon"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4L4 7L9 1" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="hf-analyst-avatar">${initials}</div>
         <div class="hf-analyst-info">
-          <div class="hf-analyst-name">${a.display_name || a.name || key}</div>
+          <div class="hf-analyst-name">${displayName}</div>
           <div class="hf-analyst-desc">${a.description || ""}</div>
         </div>`;
       card.addEventListener("click", () => _toggleAnalyst(card, key));
@@ -167,6 +172,7 @@ async function runHedgeFundAnalysis() {
 
   $("hf-progress-panel").classList.remove("hidden");
   $("hf-results").classList.add("hidden");
+  $("hf-signals-section").classList.add("hidden");
   $("hf-progress-list").innerHTML = "";
   $("hf-run-btn").disabled = true;
   $("hf-run-btn").textContent = "⏳ Running...";
@@ -283,7 +289,7 @@ function _addProgressItem(status, agent, text, mode) {
   const list = $(listId);
   if (!list) return;
 
-  const icons = { progress: "⏳", done: "✅", error: "❌" };
+  const icons = { progress: "⏳", done: "✓", error: "✕" };
   
   // Try to find if this agent already has an item in the list
   const existingItems = list.querySelectorAll(`.hf-progress-item`);
@@ -296,23 +302,23 @@ function _addProgressItem(status, agent, text, mode) {
   }
 
   if (existingItem) {
-    existingItem.querySelector(".hf-progress-icon").textContent = icons[status] || "•";
-    existingItem.querySelector(".hf-progress-status").textContent = text;
-    if (status === "progress") {
-      existingItem.classList.add("in-progress");
-    } else {
-      existingItem.classList.remove("in-progress");
-    }
+    const iconEl = existingItem.querySelector(".hf-progress-icon");
+    iconEl.textContent = icons[status] || "•";
+    iconEl.className = `hf-progress-icon ${status}`;
+    
+    const statusEl = existingItem.querySelector(".hf-progress-status");
+    statusEl.textContent = status === "done" ? "Done" : (status === "progress" ? "In Progress" : text);
+    statusEl.className = `hf-progress-status ${status}`;
     return;
   }
 
   const div = document.createElement("div");
-  div.className = `hf-progress-item ${status === "progress" ? "in-progress" : ""}`;
+  div.className = `hf-progress-item`;
   div.setAttribute("data-agent", agent);
   div.innerHTML = `
-    <span class="hf-progress-icon">${icons[status] || "•"}</span>
+    <span class="hf-progress-icon ${status}">${icons[status] || "•"}</span>
     <span class="hf-progress-agent">${agent}</span>
-    <span class="hf-progress-status">${text}</span>`;
+    <span class="hf-progress-status ${status}">${status === "done" ? "Done" : (status === "progress" ? "In Progress" : text)}</span>`;
   list.appendChild(div);
   list.scrollTop = list.scrollHeight;
 }
@@ -322,22 +328,41 @@ function _addProgressItem(status, agent, text, mode) {
 function _renderAnalysisResults(data) {
   if (!data) return;
   $("hf-results").classList.remove("hidden");
+  $("hf-signals-section").classList.remove("hidden");
+  
+  const tickerInput = $("hf-tickers")?.value || "";
+  if ($("hf-decision-title")) {
+    $("hf-decision-title").textContent = tickerInput ? `Trading Decision — ${tickerInput}` : "Trading Decision";
+  }
   
   if (data.decisions) {
     const wrap = $("hf-decision-table-wrap");
-    let html = '<table class="hf-decision-table"><thead><tr><th>Ticker</th><th>Action</th><th>Quantity</th><th>Confidence</th><th>Reasoning</th></tr></thead><tbody>';
+    wrap.innerHTML = "";
     for (const [ticker, dec] of Object.entries(data.decisions)) {
       const action = (dec.action || "hold").toLowerCase();
-      html += `<tr>
-        <td><strong>${ticker}</strong></td>
-        <td><span class="hf-action-badge ${action}">${dec.action || "HOLD"}</span></td>
-        <td>${dec.quantity || 0}</td>
-        <td>${(dec.confidence !== undefined && dec.confidence !== null) ? (dec.confidence * 1).toFixed(0) + "%" : "--"}</td>
-        <td style="max-width:300px;font-size:12px;color:var(--muted)">${dec.reasoning || ""}</td>
-      </tr>`;
+      const confidence = (dec.confidence !== undefined && dec.confidence !== null) ? (dec.confidence * 1) : 0;
+      
+      const card = document.createElement("div");
+      card.className = "hf-decision-card";
+      card.innerHTML = `
+        <div class="hf-decision-header">
+          <span class="hf-decision-ticker">${ticker}</span>
+          <span class="hf-decision-badge ${action}">${dec.action || "HOLD"}</span>
+          <span style="font-size:12px; color:var(--muted); margin-left:auto;">Qty: ${dec.quantity || 0}</span>
+        </div>
+        <div class="hf-conf-section">
+          <div class="hf-conf-header">
+            <span class="hf-conf-title">Confidence</span>
+            <span class="hf-conf-val">${confidence.toFixed(0)}%</span>
+          </div>
+          <div class="hf-conf-bar-bg">
+            <div class="hf-conf-bar-fill" style="width: ${confidence}%"></div>
+          </div>
+        </div>
+        <div class="hf-decision-reasoning">${dec.reasoning || ""}</div>
+      `;
+      wrap.appendChild(card);
     }
-    html += "</tbody></table>";
-    wrap.innerHTML = html;
   }
 
   if (data.analyst_signals) {
@@ -353,6 +378,8 @@ function _renderAnalysisResults(data) {
           reasoning = reasoning.risk_adjustment || reasoning.error || JSON.stringify(reasoning);
         }
 
+        const confidence = (signal.confidence !== undefined && signal.confidence !== null) ? (signal.confidence * 1) : 0;
+
         const card = document.createElement("div");
         card.className = "hf-signal-card";
         card.innerHTML = `
@@ -360,7 +387,16 @@ function _renderAnalysisResults(data) {
             <span class="hf-signal-agent">${agentKey}</span>
             <span class="hf-signal-badge hf-action-badge ${s.toLowerCase()}">${s}</span>
           </div>
-          <div class="hf-signal-confidence">${ticker} · Confidence: ${(signal.confidence !== undefined && signal.confidence !== null) ? (signal.confidence * 1).toFixed(0) + "%" : "N/A"}</div>
+          <div class="hf-signal-meta">${ticker}</div>
+          <div class="hf-conf-section" style="margin-top: -4px; margin-bottom: 12px;">
+            <div class="hf-conf-header" style="margin-bottom: 4px;">
+              <span class="hf-conf-title" style="font-size: 10px;">Confidence</span>
+              <span class="hf-conf-val" style="font-size: 10px;">${confidence.toFixed(0)}%</span>
+            </div>
+            <div class="hf-conf-bar-bg" style="height: 4px;">
+              <div class="hf-conf-bar-fill" style="width: ${confidence}%"></div>
+            </div>
+          </div>
           <div class="hf-signal-reasoning">${reasoning}</div>`;
         card.addEventListener("click", () => card.classList.toggle("expanded"));
         container.appendChild(card);

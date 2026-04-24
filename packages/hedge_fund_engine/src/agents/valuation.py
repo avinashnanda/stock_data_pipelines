@@ -384,8 +384,11 @@ def calculate_fcf_volatility(fcf_history: list[float]) -> float:
         return 0.8  # High volatility if mostly negative FCF
     
     try:
-        mean_fcf = statistics.mean(positive_fcf)
-        std_fcf = statistics.stdev(positive_fcf)
+        # Manual mean and stdev calculation to avoid statistics module issues in Python 3.13
+        n = len(positive_fcf)
+        mean_fcf = sum(positive_fcf) / n
+        variance = sum((f - mean_fcf) ** 2 for f in positive_fcf) / (n - 1) if n > 1 else 0
+        std_fcf = variance ** 0.5
         return min(std_fcf / mean_fcf, 1.0) if mean_fcf > 0 else 0.8
     except:
         return 0.5

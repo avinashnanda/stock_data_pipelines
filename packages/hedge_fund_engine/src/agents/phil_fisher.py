@@ -308,7 +308,11 @@ def analyze_margins_stability(financial_line_items: list) -> dict:
     # 3. Multi-year Margin Stability
     #   e.g. if we have at least 3 data points, see if standard deviation is low.
     if len(op_margins) >= 3:
-        stdev = statistics.pstdev(op_margins)
+        # Manual population stdev calculation
+        n = len(op_margins)
+        mean = sum(op_margins) / n
+        variance = sum((x - mean) ** 2 for x in op_margins) / n
+        stdev = variance ** 0.5
         if stdev < 0.02:
             raw_score += 2
             details.append("Operating margin extremely stable over multiple years")
