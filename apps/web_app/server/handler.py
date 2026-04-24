@@ -16,9 +16,6 @@ _assembled_index_cache: bytes | None = None
 
 def _assemble_index_html() -> bytes:
     """Read index.html and recursively replace @include markers with partial file contents."""
-    global _assembled_index_cache
-    if _assembled_index_cache is not None:
-        return _assembled_index_cache
     index_path = APP_DIR / "index.html"
     html = index_path.read_text(encoding="utf-8")
     def _replace(match):
@@ -66,6 +63,9 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
             if p == "/api/quote": routes_core.handle_quote(self, params); return
             if p == "/api/quotes": routes_core.handle_quotes(self, params); return
             if p == "/api/watchlist": routes_core.handle_watchlist(self, params); return
+            if p == "/api/watchlists/state":
+                if method == "POST": routes_core.handle_watchlists_post(self); return
+                routes_core.handle_watchlists_get(self); return
             if p == "/api/screener/company":
                 if method != "GET": self.send_error(HTTPStatus.METHOD_NOT_ALLOWED); return
                 routes_core.handle_screener_company(self, params); return

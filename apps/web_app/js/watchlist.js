@@ -163,7 +163,21 @@ function getDefaultWatchlistsState() {
   };
 }
 
-function getWatchlistsState() {
+async function getWatchlistsState() {
+  try {
+    // 1. Try fetching from server first (for sync across browser/desktop)
+    const response = await fetch("/api/watchlists/state");
+    const serverState = await response.json();
+    if (serverState && serverState.lists && serverState.activeId) {
+      // Sync local storage with server state for offline/fallback
+      window.localStorage.setItem(WATCHLISTS_STORAGE_KEY, JSON.stringify(serverState));
+      return serverState;
+    }
+  } catch (error) {
+    console.warn("Failed to fetch watchlist state from server", error);
+  }
+
+  // 2. Fallback to localStorage
   try {
     const raw = window.localStorage.getItem(WATCHLISTS_STORAGE_KEY);
     if (!raw) return getDefaultWatchlistsState();
@@ -171,22 +185,34 @@ function getWatchlistsState() {
     if (!parsed || !parsed.lists || !parsed.activeId) return getDefaultWatchlistsState();
     return parsed;
   } catch (error) {
-    console.warn("Failed to parse watchlist state", error);
+    console.warn("Failed to parse watchlist state from local storage", error);
     return getDefaultWatchlistsState();
   }
 }
 
-function saveWatchlistsState(state) {
+async function saveWatchlistsState(state) {
+  // 1. Save to local storage (instant feedback)
   window.localStorage.setItem(WATCHLISTS_STORAGE_KEY, JSON.stringify(state));
+
+  // 2. Persist to server (sync across environments)
+  try {
+    await fetch("/api/watchlists/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state),
+    });
+  } catch (error) {
+    console.error("Failed to save watchlist state to server", error);
+  }
 }
 
-function getActiveWatchlist() {
-  const state = getWatchlistsState();
+async function getActiveWatchlist() {
+  const state = await getWatchlistsState();
   return state.lists[state.activeId] || Object.values(state.lists)[0] || null;
 }
 
-function syncWatchlistDropdown() {
-  const state = getWatchlistsState();
+async function syncWatchlistDropdown() {
+  const state = await getWatchlistsState();
   const listContainer = $("watchlist-list-container");
   const activeNameLabel = $("active-watchlist-name");
   
@@ -196,9 +222,9 @@ function syncWatchlistDropdown() {
       const item = document.createElement("div");
       item.className = `menu-item${list.id === state.activeId ? " active" : ""}`;
       item.textContent = list.title;
-      item.addEventListener("click", (e) => {
+      item.addEventListener("click", async (e) => {
         e.stopPropagation();
-        switchActiveWatchlist(list.id);
+        await switchActiveWatchlist(list.id);
         toggleWatchlistDropdown(false);
       });
       listContainer.appendChild(item);
@@ -210,16 +236,23 @@ function syncWatchlistDropdown() {
     activeNameLabel.textContent = activeList ? activeList.title : "Select Watchlist";
   }
 
-  $("watchlist-subtitle").textContent = activeList
-    ? `${activeList.symbols.length} symbols saved locally` : "Custom synced watchlist";
-  $("watchlist-section-label").textContent = activeList ? activeList.title.toUpperCase() : "ACTIVE LIST";
+  const subtitle = $("watchlist-subtitle");
+  if (subtitle) {
+    subtitle.textContent = activeList
+      ? `${activeList.symbols.length} symbols saved locally` : "Custom synced watchlist";
+  }
+  
+  const sectionLabel = $("watchlist-section-label");
+  if (sectionLabel) {
+    sectionLabel.textContent = activeList ? activeList.title.toUpperCase() : "ACTIVE LIST";
+  }
 }
 
 async function loadWatchlistQuotes(options = {}) {
   const requestId = ++watchlistRequestId;
-  const activeList = getActiveWatchlist();
+  const activeList = await getActiveWatchlist();
   const root = $("watchlist");
-  if (!activeList) { root.innerHTML = ""; return; }
+  if (!activeList || !root) { if (root) root.innerHTML = ""; return; }
   $("watchlist-count").textContent = String(activeList.symbols.length);
   if (!activeList.symbols.length) { renderWatchlist([]); return; }
 
@@ -310,81 +343,81 @@ function startWatchlistAutoRefresh() {
   }, 15000);
 }
 
-function addSymbolToActiveWatchlist(symbolText) {
+async function addSymbolToActiveWatchlist(symbolText) {
   const symbol = normalizeSymbolInput(symbolText || "");
   if (!symbol) return;
-  const state = getWatchlistsState();
+  const state = await getWatchlistsState();
   const activeList = state.lists[state.activeId];
   if (!activeList) return;
   const fullSymbol = `NSE:${symbol}`;
   if (!activeList.symbols.includes(fullSymbol)) {
     activeList.symbols.push(fullSymbol);
-    saveWatchlistsState(state);
+    await saveWatchlistsState(state);
     loadWatchlistQuotes().catch((error) => console.error(error));
   }
 }
 
-function removeSymbolFromActiveWatchlist(symbolText) {
+async function removeSymbolFromActiveWatchlist(symbolText) {
   const symbol = normalizeSymbolInput(symbolText || "");
   if (!symbol) return;
-  const state = getWatchlistsState();
+  const state = await getWatchlistsState();
   const activeList = state.lists[state.activeId];
   if (!activeList) return;
   const fullSymbol = `NSE:${symbol}`;
   activeList.symbols = activeList.symbols.filter((item) => item !== fullSymbol);
-  saveWatchlistsState(state);
+  await saveWatchlistsState(state);
   loadWatchlistQuotes().catch((error) => console.error(error));
 }
 
 async function createNewWatchlist() {
   const listName = await showPrompt("New Watchlist", "Enter a name for your new watchlist:");
   if (!listName || !listName.trim()) return;
-  const state = getWatchlistsState();
+  const state = await getWatchlistsState();
   const id = `list_${Date.now()}`;
   state.lists[id] = { id, title: listName.trim(), symbols: [currentSymbol] };
   state.activeId = id;
-  saveWatchlistsState(state);
-  syncWatchlistDropdown();
+  await saveWatchlistsState(state);
+  await syncWatchlistDropdown();
   loadWatchlistQuotes().catch((error) => console.error(error));
 }
 
-function switchActiveWatchlist(listId) {
-  const state = getWatchlistsState();
+async function switchActiveWatchlist(listId) {
+  const state = await getWatchlistsState();
   if (!state.lists[listId]) return;
   state.activeId = listId;
-  saveWatchlistsState(state);
-  syncWatchlistDropdown();
+  await saveWatchlistsState(state);
+  await syncWatchlistDropdown();
   loadWatchlistQuotes().catch((error) => console.error(error));
 }
 
 async function renameActiveWatchlist() {
-  const state = getWatchlistsState();
+  const state = await getWatchlistsState();
   const activeList = state.lists[state.activeId];
   if (!activeList) return;
 
   const newName = await showPrompt("Rename Watchlist", "Enter a new name for this watchlist:", activeList.title);
   if (newName && newName.trim()) {
     activeList.title = newName.trim();
-    saveWatchlistsState(state);
-    syncWatchlistDropdown();
+    await saveWatchlistsState(state);
+    await syncWatchlistDropdown();
   }
 }
 
 async function clearActiveWatchlist() {
-  const state = getWatchlistsState();
+  const state = await getWatchlistsState();
   const activeList = state.lists[state.activeId];
   if (!activeList) return;
 
   const confirmed = await showConfirm("Clear Watchlist", `Are you sure you want to remove all symbols from "${activeList.title}"?`);
   if (confirmed) {
     activeList.symbols = [];
-    saveWatchlistsState(state);
+    await saveWatchlistsState(state);
     loadWatchlistQuotes().catch((error) => console.error(error));
   }
 }
 
 async function copyActiveWatchlist() {
-  const state = getWatchlistsState();
+  const state = await getWatchlistsState();
   const activeList = state.lists[state.activeId];
   if (!activeList) return;
 
@@ -393,14 +426,14 @@ async function copyActiveWatchlist() {
     const id = `list_${Date.now()}`;
     state.lists[id] = { id, title: newName.trim(), symbols: [...activeList.symbols] };
     state.activeId = id;
-    saveWatchlistsState(state);
-    syncWatchlistDropdown();
+    await saveWatchlistsState(state);
+    await syncWatchlistDropdown();
     loadWatchlistQuotes().catch((error) => console.error(error));
   }
 }
 
 async function deleteActiveWatchlist() {
-  const state = getWatchlistsState();
+  const state = await getWatchlistsState();
   const activeList = state.lists[state.activeId];
   if (!activeList) return;
 
@@ -414,8 +447,8 @@ async function deleteActiveWatchlist() {
   if (confirmed) {
     delete state.lists[state.activeId];
     state.activeId = Object.keys(state.lists)[0];
-    saveWatchlistsState(state);
-    syncWatchlistDropdown();
+    await saveWatchlistsState(state);
+    await syncWatchlistDropdown();
     loadWatchlistQuotes().catch((error) => console.error(error));
   }
 }

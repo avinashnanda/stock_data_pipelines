@@ -119,7 +119,7 @@ function buildWidget(options = {}) {
     await widget.changeTheme(currentTheme);
     bindChartEvents();
     setStatus(`Ready: ${currentSymbol} on ${currentResolution} from ${currentSourceId}`, "ready");
-    syncWatchlistDropdown();
+    await syncWatchlistDropdown();
     // loadWatchlistQuotes is already called by startWatchlistAutoRefresh or init
   });
 }
@@ -264,7 +264,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     applyShellTheme(currentTheme);
     applyResponsiveWatchlistPanelState();
     await loadSources();
-    syncWatchlistDropdown();
+    await syncWatchlistDropdown();
     
     // Initial load (non-silent to show initial state)
     await loadWatchlistQuotes();

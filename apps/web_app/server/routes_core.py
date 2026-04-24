@@ -7,6 +7,8 @@ from typing import Any
 
 from apps.web_app.server.constants import DEFAULT_WATCHLIST, SOURCE_DEFINITIONS
 from apps.web_app.server.screener import fetch_and_store_screener_snapshot, load_latest_screener_snapshot
+from config.paths import WATCHLISTS_JSON
+import json
 
 
 def handle_health(handler) -> None:
@@ -60,6 +62,26 @@ def handle_watchlist(handler, params: dict) -> None:
         symbols = DEFAULT_WATCHLIST
     items = adapter.get_watchlist_items(symbols[:20])
     handler._send_json({"items": items})
+
+
+def handle_watchlists_get(handler) -> None:
+    if not WATCHLISTS_JSON.exists():
+        handler._send_json({})
+        return
+    try:
+        data = json.loads(WATCHLISTS_JSON.read_text(encoding="utf-8"))
+        handler._send_json(data)
+    except Exception:
+        handler._send_json({})
+
+
+def handle_watchlists_post(handler) -> None:
+    try:
+        data = handler._read_json_body()
+        WATCHLISTS_JSON.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        handler._send_json({"ok": True})
+    except Exception as exc:
+        handler._send_json({"error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
 
 def handle_screener_company(handler, params: dict) -> None:
