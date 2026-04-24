@@ -5,8 +5,8 @@ from __future__ import annotations
 from http import HTTPStatus
 from typing import Any
 
-from .constants import DEFAULT_WATCHLIST, SOURCE_DEFINITIONS
-from .screener import fetch_and_store_screener_snapshot, load_latest_screener_snapshot
+from apps.web_app.server.constants import DEFAULT_WATCHLIST, SOURCE_DEFINITIONS
+from apps.web_app.server.screener import fetch_and_store_screener_snapshot, load_latest_screener_snapshot
 
 
 def handle_health(handler) -> None:

@@ -5,10 +5,19 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 # ── Path bootstrapping (same as original server.py) ──────────────────────────
-ROOT_DIR = Path(__file__).resolve().parents[3]
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # Packaged mode: ROOT_DIR is the PyInstaller extraction directory (_MEIPASS)
+    # where all bundled data (packages/, config/, apps/, data/) is located.
+    ROOT_DIR = Path(sys._MEIPASS)
+else:
+    # Development mode: ROOT_DIR is 3 levels up from apps/web_app/server/app.py
+    ROOT_DIR = Path(__file__).resolve().parents[3]
+
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+# Add the hedge fund engine directory so bare 'src.*' and 'hedge_fund_db'
+# imports work in both dev and packaged mode.
 AI_HEDGE_FUND_DIR = ROOT_DIR / "packages" / "hedge_fund_engine"
 if str(AI_HEDGE_FUND_DIR) not in sys.path:
     sys.path.insert(0, str(AI_HEDGE_FUND_DIR))
@@ -17,8 +26,8 @@ os.environ["HEDGE_FUND_DATA_MODE"] = "local"
 # Silence yfinance logger
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 
-from .handler import AppRequestHandler
-from .adapters import YFinanceSourceAdapter, SourceAdapter
+from apps.web_app.server.handler import AppRequestHandler
+from apps.web_app.server.adapters import YFinanceSourceAdapter, SourceAdapter
 
 
 class AppServer(ThreadingHTTPServer):

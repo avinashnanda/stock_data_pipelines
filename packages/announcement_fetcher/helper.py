@@ -7,7 +7,10 @@ from tqdm.auto import tqdm
 import sys
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    ROOT_DIR = Path(sys._MEIPASS)
+else:
+    ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 

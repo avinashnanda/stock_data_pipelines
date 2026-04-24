@@ -13,8 +13,8 @@ try:
 except ImportError:  # pragma: no cover - optional at runtime for UI-only mode
     duckdb = None
 
-from .constants import SCREENER_DB_PATH, SCREENER_SOURCE_BASE
-from .utils import normalize_symbol_name, sanitize_json_value
+from apps.web_app.server.constants import SCREENER_DB_PATH, SCREENER_SOURCE_BASE
+from apps.web_app.server.utils import normalize_symbol_name, sanitize_json_value
 
 # ── DuckDB import (uses the same DB path constant) ───────────────────────────
 from config.paths import SCREENER_DB  # noqa: E402
@@ -27,7 +27,7 @@ def load_latest_screener_snapshot(symbol: str) -> dict[str, Any] | None:
     if duckdb is None:
         raise RuntimeError("duckdb is not installed for Screener data access")
     if not SCREENER_DB.exists():
-        raise FileNotFoundError(f"Screener database not found: {SCREENER_DB}")
+        return None
 
     normalized = normalize_symbol_name(symbol)
     source_like = f"%/COMPANY/{normalized}/%"

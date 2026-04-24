@@ -6,9 +6,9 @@ from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler
 from typing import Any
 from urllib.parse import parse_qs, urlparse
-from .constants import APP_DIR, TRADINGVIEW_DIR, SERVER_LOG_PATH
-from .utils import sanitize_json_value
-from . import routes_core, routes_announcements, routes_hedgefund
+from apps.web_app.server.constants import APP_DIR, TRADINGVIEW_DIR, SERVER_LOG_PATH
+from apps.web_app.server.utils import sanitize_json_value
+from apps.web_app.server import routes_core, routes_announcements, routes_hedgefund
 
 # ── Regex for <!-- @include partials/xxx.html --> directives ─────────────────
 _INCLUDE_RE = re.compile(r'<!--\s*@include\s+([\w./\-]+)\s*-->')

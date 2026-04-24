@@ -7,7 +7,7 @@ from http import HTTPStatus
 
 from packages.announcement_fetcher.fetcher import start_fetcher, stop_fetcher, is_fetcher_running, get_fetcher_status
 from packages.announcement_fetcher.helper import get_all_stock_fundamental_data, get_fundamental_status
-from packages.shared_db.db_utils import get_announcements
+from packages.shared_db.db_utils import get_announcements, get_announcement_stats
 
 
 def handle_announcements_toggle(handler, method: str) -> None:
@@ -48,6 +48,7 @@ def handle_announcements(handler, params: dict) -> None:
     sentiments_param = params.get("sentiments", [""])[0].strip()
     sentiments = [s.strip() for s in sentiments_param.split(",")] if sentiments_param else None
 
+    # Fetch main list
     announcements = get_announcements(
         symbol=symbol if symbol else None,
         limit=limit,
@@ -55,4 +56,15 @@ def handle_announcements(handler, params: dict) -> None:
         end_date=end_date if end_date else None,
         sentiments=sentiments
     )
-    handler._send_json({"announcements": announcements})
+    
+    # Fetch stats (unfiltered by sentiment)
+    stats = get_announcement_stats(
+        symbol=symbol if symbol else None,
+        start_date=start_date if start_date else None,
+        end_date=end_date if end_date else None
+    )
+    
+    handler._send_json({
+        "announcements": announcements,
+        "stats": stats
+    })

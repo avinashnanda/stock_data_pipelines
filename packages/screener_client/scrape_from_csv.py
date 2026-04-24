@@ -2,7 +2,10 @@ import asyncio
 import sys
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    ROOT_DIR = Path(sys._MEIPASS)
+else:
+    ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
@@ -19,10 +22,10 @@ _sem = asyncio.Semaphore(CONCURRENCY)
 
 async def scrape_one(symbol: str, url: str) -> None:
     async with _sem:
-        print(f"🚀 Scraping {symbol} -> {url}")
+        print(f"Scraping {symbol} -> {url}")
         data = await scrape_company_with_retries(url)
         if not data:
-            print(f"❌ Skipping {symbol} (no data after retries)")
+            print(f"Skipping {symbol} (no data after retries)")
             return
 
         meta = data.get("meta", {}) or {}
@@ -33,7 +36,7 @@ async def scrape_one(symbol: str, url: str) -> None:
             url,
         )
         store_raw_json(meta.get("company_id"), url, data)
-        print(f"💾 Stored data for {symbol} ({url})")
+        print(f"Stored data for {symbol} ({url})")
 
         # be extra nice to Screener
         await asyncio.sleep(2.0)

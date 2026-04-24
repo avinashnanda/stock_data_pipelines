@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function applyShellTheme(theme) {
-  document.body.dataset.theme = theme;
+  document.documentElement.dataset.theme = theme;
   $("theme-toggle").textContent = theme === "dark" ? "Day Mode" : "Night Mode";
 }
 

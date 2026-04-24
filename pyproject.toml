@@ -54,7 +54,8 @@ dependencies = [
     "requests",
     "slack_sdk",
     "openpyxl",
-    "tqdm"
+    "tqdm",
+    "lxml>=6.1.0",
 ]
 
 [project.optional-dependencies]

@@ -58,11 +58,15 @@ function bindChartEvents() {
   const chart = widget?.activeChart?.();
   if (!chart || typeof chart.onSymbolChanged !== "function") return;
 
+  // TradingView widget handles its own cleanup on .remove(), 
+  // but we ensure we only subscribe once per widget instance.
   chart.onSymbolChanged().subscribe(null, (symbolInfo) => {
     const nextSymbol = symbolInfo.ticker || symbolInfo.name || currentSymbol;
+    if (nextSymbol === currentSymbol) return; // Skip if no change
+    
     currentSymbol = nextSymbol;
     $("symbol-input").value = normalizeSymbolInput(nextSymbol);
-    loadWatchlistQuotes().catch((error) => console.error(error));
+    loadWatchlistQuotes({ silent: true }).catch((error) => console.error(error));
     if (currentView === "screener") {
       loadScreenerData(nextSymbol).catch((error) => console.error(error));
     }
@@ -79,7 +83,7 @@ function buildWidget(options = {}) {
   $("symbol-input").value = currentSymbol.replace("NSE:", "");
   destroyWidget();
   setStatus(`Loading ${currentSymbol} on ${currentResolution} from ${currentSourceId}...`, "loading");
-  loadWatchlistQuotes().catch((error) => console.error(error));
+  
   if (currentView === "screener") {
     loadScreenerData(currentSymbol).catch((error) => console.error(error));
   }
@@ -116,7 +120,7 @@ function buildWidget(options = {}) {
     bindChartEvents();
     setStatus(`Ready: ${currentSymbol} on ${currentResolution} from ${currentSourceId}`, "ready");
     syncWatchlistDropdown();
-    await loadWatchlistQuotes();
+    // loadWatchlistQuotes is already called by startWatchlistAutoRefresh or init
   });
 }
 
@@ -146,19 +150,8 @@ function bindEvents() {
 
   if ($("news-filter-apply")) { $("news-filter-apply").addEventListener("click", () => { refreshNewsView(); }); }
 
-  const soundToggle = $("news-sound-toggle");
-  const soundWatchlist = $("news-sound-watchlist");
-  const soundWatchlistLabel = $("news-sound-watchlist-label");
-  if (soundToggle && soundWatchlist) {
-    soundToggle.addEventListener("change", (e) => {
-      soundWatchlist.disabled = !e.target.checked;
-      soundWatchlistLabel.style.color = e.target.checked ? "var(--text)" : "var(--muted)";
-      if (e.target.checked) {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-      }
-    });
-  }
+  // Sound mode button (cycles off → all → watchlist → off)
+  if ($("news-sound-btn")) { $("news-sound-btn").addEventListener("click", () => { cycleSoundMode(); }); }
 
   $("watchlist-panel-toggle").addEventListener("click", () => { toggleResponsiveWatchlistPanel(); });
   $("watchlist-rail-toggle").addEventListener("click", () => { toggleResponsiveWatchlistPanel(); });
@@ -238,17 +231,19 @@ function bindEvents() {
 
 window.addEventListener("DOMContentLoaded", async () => {
   try {
-    const today = new Date().toISOString().split("T")[0];
-    if ($("news-filter-start")) $("news-filter-start").value = today;
-    if ($("news-filter-end")) $("news-filter-end").value = today;
+    // Default date filters to today in initNewsModule.
+    // Users can narrow the range manually via the filter inputs.
 
     applyShellTheme(currentTheme);
     applyResponsiveWatchlistPanelState();
     await loadSources();
     syncWatchlistDropdown();
+    
+    // Initial load (non-silent to show initial state)
     await loadWatchlistQuotes();
+    
     startWatchlistAutoRefresh();
-    refreshActiveStockNews();
+    initNewsModule();
     startNewsPolling();
     bindEvents();
     setScreenerState("Open the Screener tab to load stored fundamentals data.");

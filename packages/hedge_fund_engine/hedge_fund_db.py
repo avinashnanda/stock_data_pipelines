@@ -10,7 +10,10 @@ from pathlib import Path
 
 import duckdb
 
-_ROOT_DIR = Path(__file__).resolve().parents[1]
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    _ROOT_DIR = Path(sys._MEIPASS)
+else:
+    _ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(_ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(_ROOT_DIR))
 

@@ -9,7 +9,10 @@ from pathlib import Path
 import pandas as pd
 
 # Ensure project root is on sys.path so paths module can be imported
-_ROOT_DIR = Path(__file__).resolve().parents[2]
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    _ROOT_DIR = Path(sys._MEIPASS)
+else:
+    _ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(_ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(_ROOT_DIR))
 
@@ -18,7 +21,29 @@ from config.paths import SCREENER_DB, ANNOUNCEMENTS_DB, FUNDAMENTALS_DB  # noqa:
 DB_FILE = str(SCREENER_DB)
 
 def get_connection():
-    return duckdb.connect(DB_FILE)
+    con = duckdb.connect(DB_FILE)
+    # Initialize screener tables if they don't exist
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS companies (
+            company_id VARCHAR PRIMARY KEY,
+            warehouse_id VARCHAR,
+            company_name VARCHAR,
+            source_url VARCHAR
+        );
+        CREATE TABLE IF NOT EXISTS raw_company_json (
+            company_id VARCHAR,
+            source_url VARCHAR,
+            scraped_at TIMESTAMP,
+            payload_json JSON
+        );
+        CREATE TABLE IF NOT EXISTS failed_companies (
+            company_id VARCHAR,
+            source_url VARCHAR,
+            failure_reason VARCHAR,
+            last_attempt TIMESTAMP
+        );
+    """)
+    return con
 
 
 def store_raw_json(company_id, url, payload):
@@ -129,6 +154,49 @@ def get_processed_pdf_urls() -> set:
     finally:
         con.close()
 
+def get_announcement_stats(symbol: str = None, start_date: str = None, end_date: str = None):
+    con = get_announcements_connection()
+    try:
+        query = "SELECT sentiment, COUNT(*) as count FROM announcements WHERE 1=1"
+        params = []
+        
+        if symbol:
+            query += " AND symbol = ?"
+            params.append(symbol)
+            
+        if start_date:
+            query += (" AND COALESCE("
+                      "  TRY_CAST(broadcast_date AS DATE),"
+                      "  TRY_CAST(STRPTIME(broadcast_date, '%d-%b-%Y %H:%M:%S') AS DATE)"
+                      " ) >= CAST(? AS DATE)")
+            params.append(start_date)
+            
+        if end_date:
+            query += (" AND COALESCE("
+                      "  TRY_CAST(broadcast_date AS DATE),"
+                      "  TRY_CAST(STRPTIME(broadcast_date, '%d-%b-%Y %H:%M:%S') AS DATE)"
+                      " ) <= CAST(? AS DATE)")
+            params.append(end_date)
+            
+        query += " GROUP BY sentiment"
+        rows = con.execute(query, params).fetchall()
+        
+        stats = {"total": 0, "positive": 0, "negative": 0, "neutral": 0}
+        for sentiment, count in rows:
+            if not sentiment: continue
+            s = sentiment.lower()
+            if "positive" in s: stats["positive"] += count
+            elif "negative" in s: stats["negative"] += count
+            else: stats["neutral"] += count
+            stats["total"] += count
+            
+        return stats
+    except Exception as e:
+        print(f"Error getting stats: {e}")
+        return {"total": 0, "positive": 0, "negative": 0, "neutral": 0}
+    finally:
+        con.close()
+
 def get_announcements(symbol: str = None, limit: int = 50, start_date: str = None, end_date: str = None, sentiments: list = None):
     con = get_announcements_connection()
     try:
@@ -140,11 +208,17 @@ def get_announcements(symbol: str = None, limit: int = 50, start_date: str = Non
             params.append(symbol)
             
         if start_date:
-            query += " AND CAST(fetched_at AS DATE) >= CAST(? AS DATE)"
+            query += (" AND COALESCE("
+                      "  TRY_CAST(broadcast_date AS DATE),"
+                      "  TRY_CAST(STRPTIME(broadcast_date, '%d-%b-%Y %H:%M:%S') AS DATE)"
+                      " ) >= CAST(? AS DATE)")
             params.append(start_date)
             
         if end_date:
-            query += " AND CAST(fetched_at AS DATE) <= CAST(? AS DATE)"
+            query += (" AND COALESCE("
+                      "  TRY_CAST(broadcast_date AS DATE),"
+                      "  TRY_CAST(STRPTIME(broadcast_date, '%d-%b-%Y %H:%M:%S') AS DATE)"
+                      " ) <= CAST(? AS DATE)")
             params.append(end_date)
             
         if sentiments:
@@ -152,7 +226,11 @@ def get_announcements(symbol: str = None, limit: int = 50, start_date: str = Non
             query += f" AND UPPER(sentiment) IN ({placeholders})"
             params.extend([s.upper() for s in sentiments])
             
-        query += " ORDER BY fetched_at DESC LIMIT ?"
+        query += (" ORDER BY COALESCE("
+                  "  TRY_CAST(broadcast_date AS TIMESTAMP),"
+                  "  TRY_CAST(STRPTIME(broadcast_date, '%d-%b-%Y %H:%M:%S') AS TIMESTAMP),"
+                  "  fetched_at"
+                  " ) DESC LIMIT ?")
         params.append(limit)
         
         results = con.execute(query, params).df()
@@ -183,6 +261,8 @@ def store_fundamental_data(df: pd.DataFrame):
         con.close()
 
 def get_symbols_with_min_market_cap(min_cap: float = 5000) -> set:
+    if not FUNDAMENTALS_DB.exists():
+        return set()
     try:
         con = duckdb.connect(str(FUNDAMENTALS_DB), read_only=True)
         results = con.execute("SELECT Symbol FROM fundamentals WHERE \"Market Cap\" > ?", [min_cap]).fetchall()
@@ -197,6 +277,8 @@ def get_symbols_with_min_market_cap(min_cap: float = 5000) -> set:
         con.close()
 
 def get_fundamentals_metadata():
+    if not FUNDAMENTALS_DB.exists():
+        return {"last_refresh": None, "company_count": 0}
     try:
         con = duckdb.connect(str(FUNDAMENTALS_DB), read_only=True)
         results = con.execute("SELECT MAX(fetched_at), COUNT(Symbol) FROM fundamentals").fetchone()

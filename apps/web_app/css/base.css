@@ -19,7 +19,7 @@
   --warning-soft: rgba(245, 166, 35, 0.16);
 }
 
-body[data-theme="light"] {
+:root[data-theme="light"] {
   --bg: #f7f8fa;
   --panel: #ffffff;
   --panel-soft: #f3f4f7;
@@ -47,7 +47,8 @@ body {
 }
 
 body {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .status {

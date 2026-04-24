@@ -107,14 +107,19 @@ function syncWatchlistDropdown() {
   $("watchlist-section-label").textContent = activeList ? activeList.title.toUpperCase() : "ACTIVE LIST";
 }
 
-async function loadWatchlistQuotes() {
+async function loadWatchlistQuotes(options = {}) {
   const requestId = ++watchlistRequestId;
   const activeList = getActiveWatchlist();
   const root = $("watchlist");
   if (!activeList) { root.innerHTML = ""; return; }
   $("watchlist-count").textContent = String(activeList.symbols.length);
   if (!activeList.symbols.length) { renderWatchlist([]); return; }
-  setWatchlistStatus("Loading watchlist...");
+
+  // Only show loading status if NOT a silent refresh
+  if (!options.silent) {
+    setWatchlistStatus("Loading watchlist...");
+  }
+
   try {
     const response = await fetch(
       `/api/watchlist?source=${encodeURIComponent(currentSourceId)}&symbols=${encodeURIComponent(activeList.symbols.join(","))}`
@@ -192,7 +197,8 @@ function renderWatchlistStats(items) {
 function startWatchlistAutoRefresh() {
   if (watchlistRefreshTimer) window.clearInterval(watchlistRefreshTimer);
   watchlistRefreshTimer = window.setInterval(() => {
-    loadWatchlistQuotes().catch((error) => console.error(error));
+    // Use silent refresh for auto-refresh to avoid UI flickering
+    loadWatchlistQuotes({ silent: true }).catch((error) => console.error(error));
   }, 15000);
 }
 

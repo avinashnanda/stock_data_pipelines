@@ -28,9 +28,14 @@
               <span id="watchlist-count" class="watchlist-count">0</span>
             </div>
             <div id="watchlist" class="watchlist"></div>
-            <div class="active-stock-news-section" style="padding: 12px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; height: 300px;">
-              <div id="watchlist-section-label" style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 8px;">LATEST ANNOUNCEMENTS</div>
-              <div id="active-stock-news" class="active-stock-news-feed" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px;"></div>
+            <div class="news-sidebar-section" style="border-top: 1px solid var(--panel-border); flex: 1; overflow: hidden;">
+              <!-- Watchlist News -->
+              <div class="recent-arrivals-section" style="flex: 1;">
+                <div class="sidebar-section-header">
+                  <span class="arrival-dot"></span> WATCHLIST NEWS
+                </div>
+                <div id="recent-arrivals-feed" class="recent-arrivals-feed"></div>
+              </div>
             </div>
           </section>
         </aside>

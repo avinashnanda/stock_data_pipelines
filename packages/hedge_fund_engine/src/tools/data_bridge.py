@@ -23,7 +23,10 @@ import yfinance as yf
 logger = logging.getLogger(__name__)
 
 # Ensure project root is importable
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]  # ai-hedge-fund/src/tools -> project root
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    _PROJECT_ROOT = Path(sys._MEIPASS)
+else:
+    _PROJECT_ROOT = Path(__file__).resolve().parents[3]  # ai-hedge-fund/src/tools -> project root
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 

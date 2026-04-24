@@ -6,12 +6,15 @@ from pathlib import Path
 import sys
 
 # Add root directory to python path if not present
-ROOT_DIR = Path(__file__).resolve().parents[1]
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    ROOT_DIR = Path(sys._MEIPASS)
+else:
+    ROOT_DIR = Path(__file__).resolve().parents[2]
+
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from config.paths import UNIVERSE_CSV, DATA_DIR  # noqa: E402
-from langchain_openai import ChatOpenAI  # noqa: E402
 from packages.announcement_fetcher.pdf_utils import load_nse_announcement_to_dataframe  # noqa: E402
 from packages.announcement_fetcher.summarize import fetch_summarize_announcements_pdf  # noqa: E402
 from packages.shared_db.db_utils import store_announcement, get_processed_pdf_urls, get_symbols_with_min_market_cap  # noqa: E402
@@ -74,6 +77,7 @@ def filter_unwanted_announcements(df_nse):
 
 def fetcher_loop():
     global _fetcher_running, _total_to_process, _processed_count, _current_company, _errors
+    from langchain_openai import ChatOpenAI
     
     # Init LLM to use LMStudio
     llm = ChatOpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio", model="local-model", temperature=0.2)

@@ -10,7 +10,7 @@ import urllib.request
 from http import HTTPStatus
 from typing import Any
 
-from .utils import sanitize_json_value
+from apps.web_app.server.utils import sanitize_json_value
 
 # Hedge fund DB imports (lazy-loaded where possible to avoid import errors if deps missing)
 try:

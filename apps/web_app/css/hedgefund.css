@@ -465,7 +465,6 @@
   grid-template-columns: 180px 1fr;
   gap: 24px;
   height: 100%;
-  min-height: 500px;
 }
 
 .hf-settings-tabs-vertical {
@@ -570,8 +569,8 @@
 }
 
 /* Dark mode overrides */
-body[data-theme="dark"] .hf-signal-card { background: rgba(15, 23, 42, 0.9); }
-body[data-theme="dark"] .hf-metric-card { background: rgba(15, 23, 42, 0.9); }
-body[data-theme="dark"] .hf-settings-dialog { background: #111827; }
-body[data-theme="dark"] .hf-key-row { background: rgba(15, 23, 42, 0.8); }
-body[data-theme="dark"] .hf-custom-add input { background: rgba(15, 23, 42, 0.8); }
+[data-theme="dark"] .hf-signal-card { background: rgba(15, 23, 42, 0.9); }
+[data-theme="dark"] .hf-metric-card { background: rgba(15, 23, 42, 0.9); }
+[data-theme="dark"] .hf-settings-dialog { background: #111827; }
+[data-theme="dark"] .hf-key-row { background: rgba(15, 23, 42, 0.8); }
+[data-theme="dark"] .hf-custom-add input { background: rgba(15, 23, 42, 0.8); }

@@ -86,32 +86,32 @@ async def scrape_company_with_retries(
     except ImportError:
         mark_failed_company = None  # type: ignore
         print(
-            "⚠️ Could not import db.db_utils.mark_failed_company; "
+            "Warning: Could not import db.db_utils.mark_failed_company; "
             "failures will not be persisted to DB."
         )
 
     for attempt in range(1, max_attempts + 1):
-        print(f"🏢 Scraping {url} (attempt {attempt}/{max_attempts})")
+        print(f"Scraping {url} (attempt {attempt}/{max_attempts})")
 
         try:
             data = await fetch_all_data(url)
         except Exception as e:
             last_exception = e
-            print(f"❌ fetch_all_data failed for {url}: {e!r}")
+            print(f"Error: fetch_all_data failed for {url}: {e!r}")
 
             # Unrecoverable HTTP cases: don't bother retrying.
             if _is_unrecoverable(e):
                 reason = f"Unrecoverable HTTP error: {e!r}"
-                print(f"⛔ Unrecoverable for {url}, not retrying. Reason: {reason}")
+                print(f"Unrecoverable for {url}, not retrying. Reason: {reason}")
                 if mark_failed_company is not None:
                     mark_failed_company(None, url, reason)
-                    print(f"📦 Recorded failed company in DB for {url} (company_id=None)")
+                    print(f"Recorded failed company in DB for {url} (company_id=None)")
                 return None
 
             # Recoverable case (429/5xx/network): retry a few times then give up.
             if attempt < max_attempts:
                 print(
-                    f"⚠️ Will retry {url} in {delay_between_attempts}s "
+                    f"Warning: Will retry {url} in {delay_between_attempts}s "
                     f"(attempt {attempt + 1}/{max_attempts})"
                 )
                 await asyncio.sleep(delay_between_attempts)
@@ -123,11 +123,11 @@ async def scrape_company_with_retries(
         schedules = data.get("schedules", {}) or {}
         if _has_missing_important_schedules(schedules):
             print(
-                f"⚠️ {url}: some important schedules are missing/empty. "
+                f"Warning: {url}: some important schedules are missing/empty. "
                 "Accepting partial data to avoid more 429s."
             )
         else:
-            print(f"✅ Successfully scraped {url} with all important schedules")
+            print(f"Successfully scraped {url} with all important schedules")
 
         return data  # ✅ no more company-level retries once we have data
 
@@ -143,6 +143,6 @@ async def scrape_company_with_retries(
         reason = "Unknown failure after all retries"
 
     mark_failed_company(None, url, reason)
-    print(f"📦 Recorded failed company in DB for {url} (company_id=None)")
+    print(f"Recorded failed company in DB for {url} (company_id=None)")
 
     return None

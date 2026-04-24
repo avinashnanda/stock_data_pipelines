@@ -1,58 +1,50 @@
           <div id="news-view" class="view-pane hidden">
             <div class="news-page">
-              <div class="news-header" style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
+
+              <!-- ── Dark Header Bar ─────────────────────────────────── -->
+              <header class="news-header-bar">
+                <div class="news-header-left">
                   <h2>Market Announcements</h2>
-                  <div style="display: flex; align-items: center; gap: 12px;">
-                    <div id="fetcher-progress-container" style="display: none; align-items: center; gap: 8px;">
-                      <span id="fetcher-status-text" style="font-size: 12px; color: var(--muted);">Processing...</span>
-                      <progress id="fetcher-progress" value="0" max="100" style="width: 100px; height: 12px;"></progress>
-                    </div>
-                    <div id="fundamental-progress-container" style="display: none; align-items: center; gap: 8px;">
-                      <span id="fundamental-status-text" style="font-size: 12px; color: var(--muted);">Refreshing...</span>
-                      <progress id="fundamental-progress" value="0" max="100" style="width: 100px; height: 12px;"></progress>
-                    </div>
-                    <div id="fundamental-metadata-container" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; margin-right: 4px;">
-                      <span id="fundamental-last-refresh" style="font-size: 11px; color: var(--text); font-weight: bold;"></span>
-                      <span id="fundamental-count" style="font-size: 11px; color: var(--muted);"></span>
-                    </div>
-                    <button id="news-refresh-fundamentals" type="button" class="secondary-button">Refresh Fundamentals</button>
-                    <button id="news-fetcher-toggle" type="button" class="primary-button">Start Fetcher</button>
-                  </div>
+                  <span id="news-live-badge" class="live-badge hidden">LIVE</span>
                 </div>
-                <div class="news-filters">
-                  <div class="filter-group">
-                    <label>From</label>
-                    <input type="date" id="news-filter-start" />
+                <div class="news-header-right">
+                  <span id="news-live-clock" class="live-clock"></span>
+                  <div id="fetcher-progress-container" class="news-header-progress" style="display: none;">
+                    <span id="fetcher-status-text">Processing...</span>
+                    <progress id="fetcher-progress" value="0" max="100"></progress>
                   </div>
-                  <div class="filter-group">
-                    <label>To</label>
-                    <input type="date" id="news-filter-end" />
+                  <div id="fundamental-progress-container" class="news-header-progress" style="display: none;">
+                    <span id="fundamental-status-text">Refreshing...</span>
+                    <progress id="fundamental-progress" value="0" max="100"></progress>
                   </div>
-                  <div class="filter-group">
-                    <label>Company</label>
-                    <input type="text" id="news-filter-symbol" placeholder="Symbol..." />
+                  <div id="fundamental-metadata-container" class="news-metadata">
+                    <span id="fundamental-last-refresh" style="font-weight: bold; color: var(--text);"></span>
+                    <span id="fundamental-count" style="color: var(--muted);"></span>
                   </div>
-                  <div class="filter-group sentiment-filters">
-                    <label class="checkbox-label">
-                      <input type="checkbox" id="news-filter-positive" value="POSITIVE" checked /> <span class="sentiment-pill positive">Positive</span>
-                    </label>
-                    <label class="checkbox-label">
-                      <input type="checkbox" id="news-filter-negative" value="NEGATIVE" checked /> <span class="sentiment-pill negative">Negative</span>
-                    </label>
-                    <label class="checkbox-label">
-                      <input type="checkbox" id="news-filter-neutral" value="NEUTRAL" /> <span class="sentiment-pill neutral">Neutral</span>
-                    </label>
-                    <label class="checkbox-label" style="margin-left: 12px; border-left: 1px solid var(--panel-border); padding-left: 12px;">
-                      <input type="checkbox" id="news-sound-toggle" /> <span style="font-size: 12px;">Sound Alerts</span>
-                    </label>
-                    <label class="checkbox-label">
-                      <input type="checkbox" id="news-sound-watchlist" disabled /> <span style="font-size: 12px; color: var(--muted);" id="news-sound-watchlist-label">Watchlist Only</span>
-                    </label>
-                  </div>
-                  <button id="news-filter-apply" type="button" class="secondary-button" style="margin-top: auto; margin-bottom: 2px;">Apply</button>
+                  <button id="news-sound-btn" type="button" class="sound-mode-btn" title="Sound alerts: OFF">🔕</button>
+                  <button id="news-refresh-fundamentals" type="button" class="secondary-button">Refresh Fundamentals</button>
+                  <button id="news-fetcher-toggle" type="button" class="primary-button">Start Fetcher</button>
+                </div>
+              </header>
+
+              <!-- ── Filter Bar ──────────────────────────────────────── -->
+              <div class="news-filter-bar">
+                <span class="filter-label">Filter</span>
+                <button id="pill-positive" type="button" class="sentiment-toggle-pill positive active">▲ Positive</button>
+                <button id="pill-negative" type="button" class="sentiment-toggle-pill negative active">▼ Negative</button>
+                <button id="pill-neutral" type="button" class="sentiment-toggle-pill neutral">● Neutral</button>
+                <span id="news-new-badge" class="news-new-badge hidden">0 new ↑</span>
+                <div id="announcement-stats-inline" class="announcement-stats-inline"></div>
+                <div class="news-filter-inputs">
+                  <input type="date" id="news-filter-start" title="From date" />
+                  <input type="date" id="news-filter-end" title="To date" />
+                  <input type="text" id="news-filter-symbol" placeholder="Symbol..." title="Filter by symbol" />
+                  <button id="news-filter-apply" type="button" class="secondary-button" style="height: 30px; padding: 0 10px; font-size: 12px;">Apply</button>
                 </div>
               </div>
-              <div id="news-feed" class="news-feed" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+
+              <!-- ── News Feed ───────────────────────────────────────── -->
+              <div id="news-feed" class="news-feed"></div>
+
             </div>
           </div>

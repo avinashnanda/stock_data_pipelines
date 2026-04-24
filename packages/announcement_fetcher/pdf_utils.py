@@ -2,11 +2,6 @@ import os
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 import requests
 from io import BytesIO, StringIO
-try:
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-except ImportError:
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
-from transformers import AutoTokenizer
 import pandas as pd
 from datetime import datetime, timedelta
 from pdfminer.high_level import extract_text
@@ -80,6 +75,12 @@ def extract_paragraphs_from_pdf(pdf_stream: BytesIO):
 
 
 def split_text(documents, chunk_size=2048, overlap=256) -> list:
+    from transformers import AutoTokenizer
+    try:
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+    except ImportError:
+        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        
     tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-4")
     text_splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
         tokenizer,

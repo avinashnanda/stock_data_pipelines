@@ -9,13 +9,13 @@ from typing import Any
 import pandas as pd
 import yfinance as yf
 
-from .constants import (
+from apps.web_app.server.constants import (
     RESOLUTION_TO_YF_INTERVAL,
     RESOLUTION_LOOKBACK_BUFFER,
     SUPPORTED_RESOLUTIONS,
     YF_INTERVAL_LIMITS,
 )
-from .utils import SymbolRecord, load_universe
+from apps.web_app.server.utils import SymbolRecord, load_universe
 
 
 class SourceAdapter:

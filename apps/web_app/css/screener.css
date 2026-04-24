@@ -6,12 +6,12 @@
   padding: 12px;
   display: grid;
   gap: 12px;
-  min-height: calc(100vh - 117px);
+  height: 100%;
   overflow: auto;
 }
 
 .screener-page {
-  min-height: calc(100vh - 117px);
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   width: 100%;
@@ -726,20 +726,20 @@
 }
 
 /* ── Screener Dark Mode ── */
-body[data-theme="dark"] .screener-page {
+[data-theme="dark"] .screener-page {
   background: #0b1120;
   color: #dbe4f0;
 }
 
-body[data-theme="dark"] .screener-company-card,
-body[data-theme="dark"] .sidebar-card,
-body[data-theme="dark"] .summary-card,
-body[data-theme="dark"] .analysis-card,
-body[data-theme="dark"] .schedule-card,
-body[data-theme="dark"] .screener-empty,
-body[data-theme="dark"] .table-card,
-body[data-theme="dark"] .peer-card,
-body[data-theme="dark"] .screener-chart-stage {
+[data-theme="dark"] .screener-company-card,
+[data-theme="dark"] .sidebar-card,
+[data-theme="dark"] .summary-card,
+[data-theme="dark"] .analysis-card,
+[data-theme="dark"] .schedule-card,
+[data-theme="dark"] .screener-empty,
+[data-theme="dark"] .table-card,
+[data-theme="dark"] .peer-card,
+[data-theme="dark"] .screener-chart-stage {
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(9, 14, 27, 0.98) 100%);
   border-color: #223048;
@@ -748,111 +748,111 @@ body[data-theme="dark"] .screener-chart-stage {
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
-body[data-theme="dark"] .screener-header {
+[data-theme="dark"] .screener-header {
   border-bottom-color: #223048;
 }
 
-body[data-theme="dark"] .screener-header h2,
-body[data-theme="dark"] .screener-price,
-body[data-theme="dark"] .summary-item strong,
-body[data-theme="dark"] .peer-card-head h3,
-body[data-theme="dark"] .table-card h3,
-body[data-theme="dark"] .table-card td.row-key,
-body[data-theme="dark"] .peer-table-shell td.row-key {
+[data-theme="dark"] .screener-header h2,
+[data-theme="dark"] .screener-price,
+[data-theme="dark"] .summary-item strong,
+[data-theme="dark"] .peer-card-head h3,
+[data-theme="dark"] .table-card h3,
+[data-theme="dark"] .table-card td.row-key,
+[data-theme="dark"] .peer-table-shell td.row-key {
   color: #f8fafc;
 }
 
-body[data-theme="dark"] .screener-header p,
-body[data-theme="dark"] .screener-header-topline,
-body[data-theme="dark"] .section-title,
-body[data-theme="dark"] .summary-item span,
-body[data-theme="dark"] .sidebar-card p,
-body[data-theme="dark"] .sidebar-card li,
-body[data-theme="dark"] .screener-section-nav a,
-body[data-theme="dark"] .screener-company-link span,
-body[data-theme="dark"] .screener-empty,
-body[data-theme="dark"] .table-card th,
-body[data-theme="dark"] .peer-table-shell th {
+[data-theme="dark"] .screener-header p,
+[data-theme="dark"] .screener-header-topline,
+[data-theme="dark"] .section-title,
+[data-theme="dark"] .summary-item span,
+[data-theme="dark"] .sidebar-card p,
+[data-theme="dark"] .sidebar-card li,
+[data-theme="dark"] .screener-section-nav a,
+[data-theme="dark"] .screener-company-link span,
+[data-theme="dark"] .screener-empty,
+[data-theme="dark"] .table-card th,
+[data-theme="dark"] .peer-table-shell th {
   color: #94a3b8;
 }
 
-body[data-theme="dark"] .summary-item {
+[data-theme="dark"] .summary-item {
   background: rgba(15, 23, 42, 0.84);
   border-right-color: #223048;
   border-bottom-color: #223048;
 }
 
-body[data-theme="dark"] .screener-summary {
+[data-theme="dark"] .screener-summary {
   border-top-color: #223048;
   border-left-color: #223048;
 }
 
-body[data-theme="dark"] .screener-company-link {
+[data-theme="dark"] .screener-company-link {
   background: rgba(15, 23, 42, 0.9);
   border-color: #223048;
   color: #dbe4f0;
 }
 
-body[data-theme="dark"] .screener-badge {
+[data-theme="dark"] .screener-badge {
   background: rgba(15, 23, 42, 0.9);
   color: #94a3b8;
 }
 
-body[data-theme="dark"] .screener-section-nav {
+[data-theme="dark"] .screener-section-nav {
   border-bottom-color: #223048;
 }
 
-body[data-theme="dark"] .screener-section-nav a:hover {
+[data-theme="dark"] .screener-section-nav a:hover {
   color: #8fb4ff;
   border-color: #8fb4ff;
 }
 
-body[data-theme="dark"] .sidebar-link {
+[data-theme="dark"] .sidebar-link {
   border-color: #334155;
   color: #a5b4fc;
 }
 
-body[data-theme="dark"] .analysis-block-pros {
+[data-theme="dark"] .analysis-block-pros {
   background: rgba(6, 78, 59, 0.28);
   border-color: rgba(52, 211, 153, 0.45);
 }
 
-body[data-theme="dark"] .analysis-block-cons {
+[data-theme="dark"] .analysis-block-cons {
   background: rgba(30, 41, 59, 0.72);
   border-color: rgba(248, 113, 113, 0.55);
 }
 
-body[data-theme="dark"] .analysis-block p,
-body[data-theme="dark"] .analysis-block li {
+[data-theme="dark"] .analysis-block p,
+[data-theme="dark"] .analysis-block li {
   color: #cbd5e1;
 }
 
-body[data-theme="dark"] .chart-range-group,
-body[data-theme="dark"] .chart-view-group,
-body[data-theme="dark"] .table-scroll,
-body[data-theme="dark"] .peer-table-shell .table-scroll {
+[data-theme="dark"] .chart-range-group,
+[data-theme="dark"] .chart-view-group,
+[data-theme="dark"] .table-scroll,
+[data-theme="dark"] .peer-table-shell .table-scroll {
   background: rgba(15, 23, 42, 0.92);
   border-color: #223048;
 }
 
-body[data-theme="dark"] .chart-range-pill,
-body[data-theme="dark"] .chart-view-pill,
-body[data-theme="dark"] .screener-legend-toggle {
+[data-theme="dark"] .chart-range-pill,
+[data-theme="dark"] .chart-view-pill,
+[data-theme="dark"] .screener-legend-toggle {
   color: #cbd5e1;
 }
 
-body[data-theme="dark"] .chart-range-pill + .chart-range-pill,
-body[data-theme="dark"] .chart-view-pill + .chart-view-pill {
+[data-theme="dark"] .chart-range-pill + .chart-range-pill,
+[data-theme="dark"] .chart-view-pill + .chart-view-pill {
   border-left-color: #223048;
 }
 
-body[data-theme="dark"] .chart-range-pill.active,
-body[data-theme="dark"] .chart-view-pill.active {
+[data-theme="dark"] .chart-range-pill.active,
+[data-theme="dark"] .chart-view-pill.active {
   background: rgba(99, 91, 255, 0.22);
   color: #c4b5fd;
 }
 
-body[data-theme="dark"] .screener-chart-canvas-shell {
+[data-theme="dark"] .screener-chart-canvas-shell {
   background:
     linear-gradient(180deg, rgba(99, 91, 255, 0.06), transparent 24%),
     linear-gradient(to bottom, transparent 24%, rgba(148, 163, 184, 0.08) 25%, transparent 26%),
@@ -860,33 +860,33 @@ body[data-theme="dark"] .screener-chart-canvas-shell {
   background-size: 100% 100%, 100% 56px, 80px 100%;
 }
 
-body[data-theme="dark"] .table-card th,
-body[data-theme="dark"] .peer-table-shell th {
+[data-theme="dark"] .table-card th,
+[data-theme="dark"] .peer-table-shell th {
   background: rgba(15, 23, 42, 0.96);
   box-shadow: inset 0 -1px 0 #223048;
 }
 
-body[data-theme="dark"] .table-card th:first-child,
-body[data-theme="dark"] .table-card td:first-child,
-body[data-theme="dark"] .peer-table-shell th:first-child,
-body[data-theme="dark"] .peer-table-shell td:first-child {
+[data-theme="dark"] .table-card th:first-child,
+[data-theme="dark"] .table-card td:first-child,
+[data-theme="dark"] .peer-table-shell th:first-child,
+[data-theme="dark"] .peer-table-shell td:first-child {
   background: #111827;
 }
 
-body[data-theme="dark"] .table-card th,
-body[data-theme="dark"] .table-card td,
-body[data-theme="dark"] .peer-table-shell th,
-body[data-theme="dark"] .peer-table-shell td {
+[data-theme="dark"] .table-card th,
+[data-theme="dark"] .table-card td,
+[data-theme="dark"] .peer-table-shell th,
+[data-theme="dark"] .peer-table-shell td {
   border-bottom-color: #223048;
   color: #cbd5e1;
 }
 
-body[data-theme="dark"] .table-card tbody tr:nth-child(even) td,
-body[data-theme="dark"] .peer-table-shell tbody tr:nth-child(even) td {
+[data-theme="dark"] .table-card tbody tr:nth-child(even) td,
+[data-theme="dark"] .peer-table-shell tbody tr:nth-child(even) td {
   background: rgba(15, 23, 42, 0.72);
 }
 
-body[data-theme="dark"] .table-card tbody tr:hover td,
-body[data-theme="dark"] .peer-table-shell tbody tr:hover td {
+[data-theme="dark"] .table-card tbody tr:hover td,
+[data-theme="dark"] .peer-table-shell tbody tr:hover td {
   background: rgba(30, 41, 59, 0.88);
 }

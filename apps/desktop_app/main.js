@@ -29,16 +29,35 @@ let backendPort = null;
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Find a free TCP port on localhost.
+ * Find a usable TCP port on localhost.
+ * Prefers a fixed port (9032) so that localStorage persists across restarts
+ * (localStorage is scoped per origin, so a changing port = data loss).
+ * Falls back through a short list of alternatives if the preferred port is busy.
  */
+const PREFERRED_PORTS = [9032, 9033, 9034, 9035];
+
 function getFreePort() {
   return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.listen(0, "127.0.0.1", () => {
-      const port = srv.address().port;
-      srv.close(() => resolve(port));
-    });
-    srv.on("error", reject);
+    let idx = 0;
+    function tryNext() {
+      if (idx >= PREFERRED_PORTS.length) {
+        // All preferred ports busy – fall back to OS-assigned port
+        const srv = net.createServer();
+        srv.listen(0, "127.0.0.1", () => {
+          const port = srv.address().port;
+          srv.close(() => resolve(port));
+        });
+        srv.on("error", reject);
+        return;
+      }
+      const port = PREFERRED_PORTS[idx++];
+      const srv = net.createServer();
+      srv.listen(port, "127.0.0.1", () => {
+        srv.close(() => resolve(port));
+      });
+      srv.on("error", () => tryNext());
+    }
+    tryNext();
   });
 }
 
@@ -74,7 +93,7 @@ async function startPythonBackend() {
     log.info(`Sidecar executable: ${sidecarPath}`);
     pythonProcess = spawn(sidecarPath, ["--port", String(backendPort)], {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env },
+      env: { ...process.env, PYTHONIOENCODING: "utf-8" },
     });
   } else {
     // ── Dev mode – run module directly ──
@@ -98,7 +117,7 @@ async function startPythonBackend() {
     pythonProcess = spawn(pythonExe, ["-m", moduleName, "--port", String(backendPort)], {
       stdio: ["ignore", "pipe", "pipe"],
       cwd: projectRoot,
-      env: { ...process.env },
+      env: { ...process.env, PYTHONIOENCODING: "utf-8" },
     });
   }
 
@@ -136,7 +155,7 @@ async function startPythonBackend() {
 /**
  * Poll the backend health endpoint until it responds.
  */
-function waitForBackend(port, timeoutMs = 30000) {
+function waitForBackend(port, timeoutMs = 60000) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     const check = () => {

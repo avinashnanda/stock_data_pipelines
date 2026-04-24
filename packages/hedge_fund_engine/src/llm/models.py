@@ -98,7 +98,11 @@ def load_models_from_json(json_path: str) -> List[LLMModel]:
 
 
 # Get the path to the JSON files
-current_dir = Path(__file__).parent
+import sys as _sys
+if getattr(_sys, 'frozen', False) and hasattr(_sys, '_MEIPASS'):
+    current_dir = Path(_sys._MEIPASS) / "packages" / "hedge_fund_engine" / "src" / "llm"
+else:
+    current_dir = Path(__file__).parent
 models_json_path = current_dir / "api_models.json"
 ollama_models_json_path = current_dir / "ollama_models.json"
 
