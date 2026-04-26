@@ -85,7 +85,7 @@ def handle_models(handler) -> None:
             data = json.loads(resp.read())
             for m in data.get("models", []):
                 models.append({"display_name": f"[Ollama] {m['name']}",
-                               "model_name": m["name"], "provider": "Ollama"})
+                            "model_name": m["name"], "provider": "Ollama", "base_url": "http://localhost:11434/v1"})
     except Exception:
         pass
     # Probe LMStudio (short timeout)
@@ -101,7 +101,7 @@ def handle_models(handler) -> None:
             data = json.loads(resp.read())
             for m in data.get("data", []):
                 models.append({"display_name": f"[LMStudio] {m['id']}",
-                               "model_name": m["id"], "provider": "LMStudio"})
+                               "model_name": m["id"], "provider": "LMStudio", "base_url": lms_url.rsplit("/models", 1)[0]})
     except Exception:
         pass
     # Custom endpoints
@@ -110,7 +110,10 @@ def handle_models(handler) -> None:
             for cm in hf_get_custom_models():
                 models.append({"display_name": cm["display_name"],
                                "model_name": cm["model_name"],
-                               "provider": cm["provider"]})
+                               "provider": cm["provider"],
+                               "endpoint_id": cm.get("endpoint_id"),
+                               "base_url": cm.get("base_url"),
+                               "endpoint_label": cm.get("endpoint_label")})
         except Exception:
             pass
     handler._send_json({"models": models})

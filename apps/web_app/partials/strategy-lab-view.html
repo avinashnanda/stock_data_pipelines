@@ -1,0 +1,491 @@
+          <div id="strategylab-view" class="view-pane hidden">
+            <div class="strategy-lab">
+              <aside class="strategy-sidebar">
+                <div class="strategy-sidebar-header">
+                  <div>
+                    <div class="strategy-sidebar-kicker">Strategy Lab</div>
+                    <h3>Research Workspace</h3>
+                  </div>
+                  <div class="strategy-sidebar-actions">
+                    <button id="strategy-sidebar-toggle" type="button" class="icon-button icon-button-text" aria-expanded="true" title="Collapse sidebar">Collapse</button>
+                    <button id="strategy-new-btn" type="button" class="secondary-button">New</button>
+                  </div>
+                </div>
+
+                <div class="strategy-sidebar-stats">
+                  <div class="strategy-sidebar-stat">
+                    <span class="strategy-sidebar-stat-label">Saved</span>
+                    <strong id="strategy-sidebar-saved-count">0</strong>
+                  </div>
+                  <div class="strategy-sidebar-stat">
+                    <span class="strategy-sidebar-stat-label">Backtests</span>
+                    <strong id="strategy-sidebar-backtest-count">0</strong>
+                  </div>
+                  <div class="strategy-sidebar-stat">
+                    <span class="strategy-sidebar-stat-label">Paper</span>
+                    <strong id="strategy-sidebar-paper-count">0</strong>
+                  </div>
+                </div>
+
+                <div class="strategy-sidebar-section">
+                  <div class="strategy-section-title-row">
+                    <span class="strategy-section-title">Scanner</span>
+                  </div>
+                  <div id="strategy-scanner-summary" class="strategy-empty-state">No market regime snapshot yet.</div>
+                </div>
+
+                <div class="strategy-sidebar-section">
+                  <div class="strategy-section-title-row">
+                    <span class="strategy-section-title">Portfolio</span>
+                  </div>
+                  <div id="strategy-portfolio-summary" class="strategy-empty-state">No paper portfolio running.</div>
+                </div>
+
+                <div class="strategy-sidebar-section">
+                  <div class="strategy-section-title-row">
+                    <span class="strategy-section-title">Live Runtime</span>
+                  </div>
+                  <div id="strategy-live-runtime-summary" class="strategy-empty-state">Paper/live runtime is idle.</div>
+                </div>
+
+                <div class="strategy-sidebar-section">
+                  <div class="strategy-section-title-row">
+                    <span class="strategy-section-title">Saved Strategies</span>
+                    <button id="strategy-refresh-list-btn" type="button" class="icon-button icon-button-text">Refresh</button>
+                  </div>
+                  <div id="strategy-list-empty" class="strategy-empty-state hidden">No saved strategies yet.</div>
+                  <div id="strategy-list" class="strategy-list"></div>
+                </div>
+
+                <div class="strategy-sidebar-section">
+                  <div class="strategy-section-title-row">
+                    <span class="strategy-section-title">Recent Backtests</span>
+                    <button id="strategy-refresh-backtests-btn" type="button" class="icon-button icon-button-text">Refresh</button>
+                  </div>
+                  <div id="strategy-backtests-empty" class="strategy-empty-state hidden">No backtests saved yet.</div>
+                  <div id="strategy-backtests-list" class="strategy-list"></div>
+                </div>
+              </aside>
+              <button id="strategy-sidebar-rail-toggle" type="button" class="strategy-sidebar-rail-toggle hidden" aria-label="Show Strategy Lab sidebar" title="Show Strategy Lab sidebar">&gt;&gt;</button>
+              <div class="strategy-split-handle strategy-sidebar-handle" data-split-target="sidebar" aria-hidden="true"></div>
+
+              <section class="strategy-workspace">
+                <div class="strategy-toolbar">
+                  <div class="strategy-toolbar-left">
+                    <div class="strategy-toolbar-symbol">
+                      <span class="strategy-toolbar-label">Symbol</span>
+                      <strong id="strategy-current-symbol">NSE:RELIANCE</strong>
+                    </div>
+                    <div class="strategy-toolbar-field">
+                      <label for="strategy-timeframe">Timeframe</label>
+                      <select id="strategy-timeframe">
+                        <option value="1">1m</option>
+                        <option value="5">5m</option>
+                        <option value="15">15m</option>
+                        <option value="30">30m</option>
+                        <option value="60">1h</option>
+                        <option value="240">4h</option>
+                        <option value="1D" selected>1D</option>
+                        <option value="1W">1W</option>
+                        <option value="1M">1M</option>
+                      </select>
+                    </div>
+                    <div class="strategy-toolbar-field">
+                      <label for="strategy-start-date">Start</label>
+                      <input id="strategy-start-date" type="date" />
+                    </div>
+                    <div class="strategy-toolbar-field">
+                      <label for="strategy-end-date">End</label>
+                      <input id="strategy-end-date" type="date" />
+                    </div>
+                    <div class="strategy-toolbar-field">
+                      <label for="strategy-initial-cash">Capital</label>
+                      <input id="strategy-initial-cash" type="number" min="0" step="1000" value="100000" />
+                    </div>
+                    <div class="strategy-toolbar-field">
+                      <label for="strategy-commission">Commission</label>
+                      <input id="strategy-commission" type="number" min="0" step="0.0001" value="0" title="Decimal rate, e.g. 0.001 = 0.1%" />
+                    </div>
+                    <div class="strategy-toolbar-field">
+                      <label for="strategy-run-engine">Run Engine</label>
+                      <select id="strategy-run-engine">
+                        <option value="auto" selected>Auto</option>
+                        <option value="backtesting">backtesting.py</option>
+                      </select>
+                    </div>
+                    <div class="strategy-toolbar-field">
+                      <label for="strategy-opt-engine">Optimization Engine</label>
+                      <select id="strategy-opt-engine">
+                        <option value="auto" selected>Auto</option>
+                        <option value="backtesting">backtesting.py</option>
+                      </select>
+                    </div>
+                    <div class="strategy-toolbar-field">
+                      <label for="strategy-export-format">Export</label>
+                      <select id="strategy-export-format">
+                        <option value="json" selected>JSON</option>
+                        <option value="trades_csv">Trades CSV</option>
+                        <option value="equity_csv">Equity CSV</option>
+                      </select>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div class="strategy-main-grid">
+                  <section class="strategy-chart-panel">
+                    <div class="strategy-panel-header">
+                      <div>
+                        <div class="strategy-panel-kicker">Chart</div>
+                        <h3>TradingView Workspace</h3>
+                      </div>
+                      <div class="strategy-panel-actions">
+                        <div id="strategy-run-status" class="strategy-status-pill">Ready</div>
+                        <button id="strategy-run-btn" type="button" class="primary-button">Run Backtest</button>
+                        <button id="strategy-optimize-btn" type="button" class="secondary-button">Optimize</button>
+                      </div>
+                    </div>
+                    <div id="strategy-chart-host" class="strategy-chart-host"></div>
+                  </section>
+
+                  <div class="strategy-split-handle strategy-workspace-handle" data-split-target="workspace" aria-hidden="true"></div>
+
+                  <section class="strategy-editor-panel">
+                    <div class="strategy-tab-bar">
+                      <button id="strategy-tab-editor" type="button" class="strategy-tab active" data-strategy-tab="editor">Code Editor</button>
+                      <button id="strategy-tab-params" type="button" class="strategy-tab" data-strategy-tab="params">Parameters</button>
+                      <button id="strategy-tab-logs" type="button" class="strategy-tab" data-strategy-tab="logs">Logs</button>
+                      <button id="strategy-tab-live" type="button" class="strategy-tab" data-strategy-tab="live">Live Orders</button>
+                      <div class="strategy-tab-spacer"></div>
+                      <button id="strategy-save-new-btn" type="button" class="secondary-button">Save New</button>
+                      <button id="strategy-save-btn" type="button" class="secondary-button">Save Strategy</button>
+                    </div>
+
+                    <div id="strategy-pane-editor" class="strategy-tab-pane">
+                      <div class="strategy-form-grid">
+                        <div class="strategy-form-field">
+                          <label for="strategy-name">Strategy Name</label>
+                          <input id="strategy-name" type="text" placeholder="EMA Cross Strategy" />
+                        </div>
+                        <div class="strategy-form-field">
+                          <label for="strategy-tags">Tags</label>
+                          <input id="strategy-tags" type="text" placeholder="trend, swing, momentum" />
+                        </div>
+                      </div>
+                      <div class="strategy-form-field">
+                        <label for="strategy-description">Description</label>
+                        <textarea id="strategy-description" rows="2" placeholder="Describe the strategy thesis and intended market behavior."></textarea>
+                      </div>
+                      <div id="strategy-editor" class="strategy-editor-surface"></div>
+                      <textarea id="strategy-editor-fallback" class="strategy-editor-fallback hidden"></textarea>
+                      <div class="strategy-ai-box">
+                        <div class="strategy-ai-box-header">
+                          <div>
+                            <div class="strategy-panel-kicker">AI Strategy Assistant</div>
+                            <h4>Describe your idea and choose a model to generate the draft.</h4>
+                          </div>
+                          <button id="strategy-generate-btn" type="button" class="secondary-button">Generate Strategy</button>
+                        </div>
+                        <div class="strategy-ai-helper">Uses the same model registry as the Hedge Fund tab. Pick OpenAI, Ollama, LM Studio, or a saved custom endpoint when available.</div>
+                        <div class="strategy-ai-model-row">
+                          <div class="strategy-ai-model-controls">
+                            <div class="strategy-form-field strategy-ai-model-field">
+                              <label for="strategy-model-select">Model</label>
+                              <select id="strategy-model-select">
+                                <option value="">Local generator</option>
+                              </select>
+                            </div>
+                            <button id="strategy-model-refresh-btn" type="button" class="secondary-button strategy-ai-model-refresh">Refresh</button>
+                          </div>
+                          <div id="strategy-model-status" class="strategy-ai-model-status">Local generator is ready.</div>
+                        </div>
+                        <textarea id="strategy-generate-prompt" rows="3" class="strategy-json-input strategy-ai-prompt" spellcheck="false" placeholder="Describe the indicator you want to generate..."></textarea>
+                        <div id="strategy-generate-status" class="strategy-empty-state">The assistant will generate a starter strategy and prefill the editor.</div>
+                      </div>
+                    </div>
+
+                    <div id="strategy-pane-params" class="strategy-tab-pane hidden">
+                      <div class="strategy-form-field">
+                        <label for="strategy-params-json">Parameter Schema / Default Params (JSON)</label>
+                        <textarea id="strategy-params-json" rows="14" class="strategy-json-input" spellcheck="false">{&#10;  "ema_fast": 10,&#10;  "ema_slow": 50&#10;}</textarea>
+                      </div>
+                      <div class="strategy-form-grid">
+                        <div class="strategy-form-field">
+                          <label for="strategy-opt-objective">Optimization Objective</label>
+                          <select id="strategy-opt-objective">
+                            <option value="sharpe" selected>Sharpe</option>
+                            <option value="return_pct">Return %</option>
+                            <option value="sortino">Sortino</option>
+                            <option value="profit_factor">Profit Factor</option>
+                            <option value="custom">Custom Weighted Formula</option>
+                          </select>
+                        </div>
+                        <div class="strategy-form-field">
+                          <label for="strategy-opt-grid-json">Optimization Grid (JSON)</label>
+                          <textarea id="strategy-opt-grid-json" rows="9" class="strategy-json-input" spellcheck="false">{&#10;  "fast_length": {"start": 5, "end": 20, "step": 1},&#10;  "slow_length": {"start": 30, "end": 100, "step": 5},&#10;  "_constraints": ["fast_length < slow_length"]&#10;}</textarea>
+                        </div>
+                      </div>
+                      <div class="strategy-optimizer-setup">
+                        <section class="strategy-optimizer-card strategy-optimizer-card-wide">
+                          <div class="strategy-optimization-card-header">
+                            <h4>Parameter Ranges</h4>
+                            <button id="strategy-opt-sync-params-btn" type="button" class="secondary-button">Sync From JSON</button>
+                          </div>
+                          <div id="strategy-opt-param-rows" class="strategy-opt-param-rows"></div>
+                        </section>
+                        <section class="strategy-optimizer-card">
+                          <div class="strategy-optimization-card-header">
+                            <h4>Method</h4>
+                            <span class="strategy-optimization-meta">backtesting.py optimize</span>
+                          </div>
+                          <div class="strategy-method-grid">
+                            <label><input type="radio" name="strategy-opt-method" value="grid" checked /> Grid</label>
+                            <label><input type="radio" name="strategy-opt-method" value="random" /> Random</label>
+                            <label><input type="radio" name="strategy-opt-method" value="genetic" /> Genetic</label>
+                            <label><input type="radio" name="strategy-opt-method" value="bayesian" /> Bayesian</label>
+                            <label><input type="radio" name="strategy-opt-method" value="walk-forward" /> Walk-forward</label>
+                          </div>
+                        </section>
+                        <section class="strategy-optimizer-card">
+                          <div class="strategy-optimization-card-header">
+                            <h4>Execution</h4>
+                            <span class="strategy-optimization-meta">Budget</span>
+                          </div>
+                          <div class="strategy-execution-grid">
+                            <label>Runs <input id="strategy-opt-max-runs" type="number" min="1" value="512" /></label>
+                            <label>Generations <input id="strategy-opt-generations" type="number" min="1" value="20" /></label>
+                            <label>Cores <input id="strategy-opt-cores" type="number" min="1" value="1" /></label>
+                            <label>Time Budget <input id="strategy-opt-time-budget" type="text" value="120s" /></label>
+                            <label>In Sample % <input id="strategy-opt-insample" type="number" min="1" max="99" value="70" /></label>
+                          </div>
+                        </section>
+                        <section class="strategy-optimizer-card strategy-optimizer-card-wide">
+                          <div class="strategy-optimization-card-header">
+                            <h4>Custom Objective</h4>
+                            <span class="strategy-optimization-meta">Weighted formula</span>
+                          </div>
+                          <input id="strategy-opt-custom-formula" class="strategy-formula-input" type="text" value="0.5*sharpe + 0.3*return_pct - 0.2*abs(max_drawdown)" />
+                        </section>
+                      </div>
+                    </div>
+
+                    <div id="strategy-pane-logs" class="strategy-tab-pane hidden">
+                      <pre id="strategy-logs" class="strategy-log-output">Strategy logs will appear here.</pre>
+                    </div>
+
+                    <div id="strategy-pane-live" class="strategy-tab-pane hidden">
+                      <div class="strategy-live-grid">
+                        <section class="strategy-live-card">
+                          <div class="strategy-panel-kicker">Paper Trading</div>
+                          <div class="strategy-live-actions">
+                            <button id="strategy-paper-start-btn" type="button" class="primary-button">Start Paper Session</button>
+                            <button id="strategy-paper-stop-btn" type="button" class="secondary-button">Stop Session</button>
+                          </div>
+                          <div id="strategy-paper-session-summary" class="strategy-empty-state">No active paper session.</div>
+                        </section>
+                        <section class="strategy-live-card">
+                          <div class="strategy-panel-kicker">Manual Order</div>
+                          <div class="strategy-live-order-form">
+                            <select id="strategy-paper-side">
+                              <option value="BUY">BUY</option>
+                              <option value="SELL">SELL</option>
+                            </select>
+                            <input id="strategy-paper-qty" type="number" min="1" value="1" />
+                            <input id="strategy-paper-price" type="number" min="0" step="0.01" placeholder="Last price" />
+                            <button id="strategy-paper-order-btn" type="button" class="secondary-button">Send Order</button>
+                          </div>
+                        </section>
+                      </div>
+                      <div class="strategy-table-shell">
+                        <table class="strategy-results-table">
+                          <thead>
+                            <tr>
+                              <th>Time</th>
+                              <th>Side</th>
+                              <th>Qty</th>
+                              <th>Price</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody id="strategy-live-orders-body">
+                            <tr><td colspan="5" class="strategy-empty-cell">No live or paper orders yet.</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </section>
+
+                <div class="strategy-split-handle strategy-results-handle" data-split-target="results" aria-hidden="true"></div>
+
+                <section class="strategy-results-panel">
+                  <div class="strategy-tab-bar">
+                    <button type="button" class="strategy-tab active" data-results-tab="metrics">Metrics</button>
+                    <button type="button" class="strategy-tab" data-results-tab="trades">Trades</button>
+                    <button type="button" class="strategy-tab" data-results-tab="equity">Equity Curve</button>
+                    <button type="button" class="strategy-tab" data-results-tab="drawdown">Drawdown</button>
+                    <button type="button" class="strategy-tab" data-results-tab="compare">Compare Strategies</button>
+                    <button type="button" class="strategy-tab" data-results-tab="optimization">Optimization Results</button>
+                    <div class="strategy-tab-spacer"></div>
+                    <button id="strategy-compare-btn" type="button" class="secondary-button">Compare Selected</button>
+                    <button id="strategy-export-btn" type="button" class="secondary-button">Export Latest</button>
+                    <button id="strategy-results-fullscreen-btn" type="button" class="secondary-button">Fullscreen</button>
+                  </div>
+
+                  <div id="strategy-results-metrics" class="strategy-results-pane">
+                    <div id="strategy-metrics-grid" class="strategy-metrics-grid">
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">CAGR</span><strong class="strategy-metric-value">--</strong></div>
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">Return %</span><strong class="strategy-metric-value">--</strong></div>
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">Max DD</span><strong class="strategy-metric-value">--</strong></div>
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">Sharpe</span><strong class="strategy-metric-value">--</strong></div>
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">Sortino</span><strong class="strategy-metric-value">--</strong></div>
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">Win Rate</span><strong class="strategy-metric-value">--</strong></div>
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">Profit Factor</span><strong class="strategy-metric-value">--</strong></div>
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">Total Trades</span><strong class="strategy-metric-value">--</strong></div>
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">Ending Equity</span><strong class="strategy-metric-value">--</strong></div>
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">Avg Trade</span><strong class="strategy-metric-value">--</strong></div>
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">Best Trade</span><strong class="strategy-metric-value">--</strong></div>
+                      <div class="strategy-metric-card"><span class="strategy-metric-label">Worst Trade</span><strong class="strategy-metric-value">--</strong></div>
+                    </div>
+                  </div>
+
+                  <div id="strategy-results-trades" class="strategy-results-pane hidden">
+                    <div class="strategy-table-shell">
+                      <table class="strategy-results-table">
+                        <thead>
+                          <tr>
+                            <th>Date</th>
+                            <th>Side</th>
+                            <th>Qty</th>
+                            <th>Entry</th>
+                            <th>Exit</th>
+                            <th>PnL</th>
+                            <th>PnL %</th>
+                          </tr>
+                        </thead>
+                        <tbody id="strategy-trades-body">
+                          <tr><td colspan="7" class="strategy-empty-cell">Run a backtest to populate trades.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div id="strategy-results-equity" class="strategy-results-pane hidden">
+                    <div class="strategy-chart-canvas-wrap">
+                      <canvas id="strategy-equity-chart"></canvas>
+                    </div>
+                  </div>
+
+                  <div id="strategy-results-drawdown" class="strategy-results-pane hidden">
+                    <div class="strategy-chart-canvas-wrap">
+                      <canvas id="strategy-drawdown-chart"></canvas>
+                    </div>
+                  </div>
+
+                  <div id="strategy-results-compare" class="strategy-results-pane hidden">
+                    <div class="strategy-compare-shell">
+                      <div id="strategy-compare-summary" class="strategy-empty-state">Select saved strategies in the sidebar and click Compare Selected.</div>
+                      <div class="strategy-table-shell">
+                        <table class="strategy-results-table">
+                          <thead>
+                            <tr>
+                              <th>Strategy</th>
+                              <th>Return %</th>
+                              <th>Sharpe</th>
+                              <th>Sortino</th>
+                              <th>Max DD</th>
+                              <th>Trades</th>
+                            </tr>
+                          </thead>
+                          <tbody id="strategy-compare-body">
+                            <tr><td colspan="6" class="strategy-empty-cell">No comparison run yet.</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="strategy-chart-canvas-wrap">
+                        <canvas id="strategy-compare-chart"></canvas>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="strategy-results-optimization" class="strategy-results-pane hidden">
+                    <div id="strategy-optimization-summary" class="strategy-empty-state">Optimization results will appear here.</div>
+                    <div id="strategy-optimization-diagnostics" class="strategy-optimization-diagnostics hidden"></div>
+                    <div id="strategy-optimization-pinned" class="strategy-pinned-runs hidden"></div>
+                    <div class="strategy-optimization-grid">
+                      <section class="strategy-optimization-card">
+                        <div class="strategy-optimization-card-header">
+                          <h4>Heatmap</h4>
+                          <span id="strategy-heatmap-axes" class="strategy-optimization-meta">Waiting for optimization data</span>
+                        </div>
+                        <div id="strategy-heatmap-wrap" class="strategy-heatmap-wrap">
+                          <div id="strategy-heatmap-empty" class="strategy-empty-state">Heatmap will appear after optimization.</div>
+                          <div id="strategy-heatmap-grid" class="strategy-heatmap-grid hidden"></div>
+                        </div>
+                      </section>
+                      <section class="strategy-optimization-card">
+                        <div class="strategy-optimization-card-header">
+                          <h4>Parameter Sensitivity</h4>
+                          <span class="strategy-optimization-meta">Estimated importance</span>
+                        </div>
+                        <div id="strategy-robustness-summary" class="strategy-empty-state">Robustness analysis will appear here.</div>
+                        <div class="strategy-table-shell">
+                          <table class="strategy-results-table">
+                            <thead>
+                              <tr>
+                                <th>Rank</th>
+                                <th>Parameter</th>
+                                <th>Impact</th>
+                                <th>Sensitivity</th>
+                              </tr>
+                            </thead>
+                            <tbody id="strategy-robustness-body">
+                              <tr><td colspan="4" class="strategy-empty-cell">No sensitivity rows yet.</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+                    </div>
+                    <div class="strategy-optimization-grid strategy-optimization-grid-secondary">
+                      <section class="strategy-optimization-card">
+                        <div class="strategy-optimization-card-header">
+                          <h4>Return vs Drawdown</h4>
+                          <span class="strategy-optimization-meta">Pareto scan</span>
+                        </div>
+                        <div class="strategy-chart-canvas-wrap">
+                          <canvas id="strategy-optimization-scatter-chart"></canvas>
+                        </div>
+                      </section>
+                      <section class="strategy-optimization-card">
+                        <div class="strategy-optimization-card-header">
+                          <h4>Top 5 Return</h4>
+                          <span class="strategy-optimization-meta">Comparison</span>
+                        </div>
+                        <div class="strategy-chart-canvas-wrap">
+                          <canvas id="strategy-optimization-score-chart"></canvas>
+                        </div>
+                      </section>
+                    </div>
+                    <div class="strategy-table-shell">
+                      <table class="strategy-results-table">
+                        <thead>
+                          <tr>
+                            <th>Rank</th>
+                            <th>Params</th>
+                            <th>Score</th>
+                            <th>Return %</th>
+                            <th>Sharpe</th>
+                            <th>Max DD</th>
+                            <th>Pin</th>
+                          </tr>
+                        </thead>
+                        <tbody id="strategy-optimization-body">
+                          <tr><td colspan="7" class="strategy-empty-cell">No optimization run yet.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </section>
+                </div>
+              </section>
+            </div>
+          </div>

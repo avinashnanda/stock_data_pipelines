@@ -17,6 +17,11 @@
     <script src="/js/symbol-modal.js"></script>
     <script src="/js/screener.js"></script>
     <script src="/js/news.js"></script>
+    <script src="/js/strategy-editor.js"></script>
+    <script src="/js/strategy-storage.js"></script>
+    <script src="/js/strategy-signals.js"></script>
+    <script src="/js/strategy-split-layout.js"></script>
+    <script src="/js/strategy-lab.js" defer></script>
     <script src="/js/hedgefund.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
@@ -46,18 +51,22 @@
           <div class="view-tabs">
             <button id="tab-price" type="button" class="view-tab active">Price</button>
             <button id="tab-screener" type="button" class="view-tab">Screener</button>
+            <button id="tab-strategylab" type="button" class="view-tab">Strategy Lab</button>
             <button id="tab-news" type="button" class="view-tab">Announcements</button>
             <button id="tab-hedgefund" type="button" class="view-tab">Hedge Fund</button>
           </div>
 
           <div id="price-view" class="view-pane">
             <div class="chart-card">
-              <div id="tv_chart_container"></div>
+              <div id="tv_chart_host">
+                <div id="tv_chart_container"></div>
+              </div>
             </div>
           </div>
 
           <!-- @include partials/screener-view.html -->
           <!-- @include partials/news-view.html -->
+          <!-- @include partials/strategy-lab-view.html -->
           <!-- @include partials/hedgefund-view.html -->
         </section>
 

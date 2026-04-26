@@ -24,13 +24,24 @@ function switchView(view) {
   window.localStorage.setItem("tradingview_ui_view", view);
   $("tab-price").classList.toggle("active", view === "price");
   $("tab-screener").classList.toggle("active", view === "screener");
+  if ($("tab-strategylab")) $("tab-strategylab").classList.toggle("active", view === "strategylab");
   if ($("tab-news")) $("tab-news").classList.toggle("active", view === "news");
   if ($("tab-hedgefund")) $("tab-hedgefund").classList.toggle("active", view === "hedgefund");
 
   $("price-view").classList.toggle("hidden", view !== "price");
   $("screener-view").classList.toggle("hidden", view !== "screener");
+  if ($("strategylab-view")) $("strategylab-view").classList.toggle("hidden", view !== "strategylab");
   if ($("news-view")) $("news-view").classList.toggle("hidden", view !== "news");
   if ($("hedgefund-view")) $("hedgefund-view").classList.toggle("hidden", view !== "hedgefund");
+
+  syncChartHost(view);
+  if (typeof applyStrategySignals === "function") {
+    if (view === "strategylab") {
+      window.setTimeout(() => applyStrategySignals(), 0);
+    } else if (typeof clearStrategySignals === "function") {
+      clearStrategySignals();
+    }
+  }
 
   if (view === "screener") {
     scheduleScreenerLayoutSync();
@@ -38,13 +49,40 @@ function switchView(view) {
       console.error(error);
       setScreenerState(`Failed to load Screener data: ${error.message}`, "error");
     });
+  } else if (view === "strategylab") {
+    if (typeof initStrategyLab === "function") initStrategyLab();
+    if (typeof syncStrategyLabSymbol === "function") syncStrategyLabSymbol();
+    window.setTimeout(() => {
+      buildWidget({
+        symbol: currentSymbol,
+        sourceId: currentSourceId,
+        resolution: currentResolution,
+      });
+    }, 0);
   } else if (view === "news") {
     refreshNewsView();
     checkFetcherStatus();
   } else if (view === "hedgefund") {
     if (typeof initHedgeFund === "function") initHedgeFund();
     if (typeof syncHedgeFundTicker === "function") syncHedgeFundTicker();
+  } else if (view === "price") {
+    window.setTimeout(() => {
+      buildWidget({
+        symbol: currentSymbol,
+        sourceId: currentSourceId,
+        resolution: currentResolution,
+      });
+    }, 0);
   }
+}
+
+function syncChartHost(view) {
+  const container = $("tv_chart_container");
+  if (!container) return;
+
+  const nextHost = view === "strategylab" ? $("strategy-chart-host") : $("tv_chart_host");
+  if (!nextHost || container.parentElement === nextHost) return;
+  nextHost.appendChild(container);
 }
 
 function destroyWidget() {
@@ -70,6 +108,8 @@ function bindChartEvents() {
     if (currentView === "screener") {
       loadScreenerData(nextSymbol).catch((error) => console.error(error));
     }
+    if (typeof resetStrategySignals === "function") resetStrategySignals();
+    if (typeof syncStrategyLabSymbol === "function") syncStrategyLabSymbol();
     refreshActiveStockNews();
   });
 }
@@ -118,6 +158,7 @@ function buildWidget(options = {}) {
     widget.activeChart().setResolution(currentResolution, () => {});
     await widget.changeTheme(currentTheme);
     bindChartEvents();
+    if (typeof applyStrategySignals === "function") applyStrategySignals();
     setStatus(`Ready: ${currentSymbol} on ${currentResolution} from ${currentSourceId}`, "ready");
     await syncWatchlistDropdown();
     // loadWatchlistQuotes is already called by startWatchlistAutoRefresh or init
@@ -130,6 +171,7 @@ function bindEvents() {
   $("source-select").addEventListener("change", () => { buildWidget({ sourceId: $("source-select").value }); });
   $("tab-price").addEventListener("click", () => { switchView("price"); });
   $("tab-screener").addEventListener("click", () => { switchView("screener"); });
+  if ($("tab-strategylab")) { $("tab-strategylab").addEventListener("click", () => { switchView("strategylab"); }); }
   if ($("tab-news")) { $("tab-news").addEventListener("click", () => { switchView("news"); }); }
   if ($("tab-hedgefund")) { $("tab-hedgefund").addEventListener("click", () => { switchView("hedgefund"); }); }
 

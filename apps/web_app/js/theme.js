@@ -11,6 +11,9 @@ async function toggleTheme() {
   currentTheme = currentTheme === "dark" ? "light" : "dark";
   window.localStorage.setItem("tradingview_ui_theme", currentTheme);
   applyShellTheme(currentTheme);
+  if (typeof syncStrategyEditorTheme === "function") {
+    syncStrategyEditorTheme(currentTheme);
+  }
   if (widget) {
     await widget.changeTheme(currentTheme);
   }

@@ -59,6 +59,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+quant = [
+    "backtesting",
+    "vectorbt"
+]
 dev = [
     "ipykernel",
     "jupyter",

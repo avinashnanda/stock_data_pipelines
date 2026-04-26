@@ -62,6 +62,12 @@ Ensure you have Python 3.13.6+ and Node.js installed.
    ```
    *This automatically creates a virtual environment and installs all dependencies (including dev tools).*
 
+   For Strategy Lab quant adapters specifically, you can also install the optional quant stack:
+   ```bash
+   uv sync --extra quant
+   ```
+   This enables automatic `backtesting.py` and `vectorbt` engine selection when available.
+
 3. **Install Desktop App Dependencies** (Optional, if using Electron):
    ```bash
    cd apps/desktop_app

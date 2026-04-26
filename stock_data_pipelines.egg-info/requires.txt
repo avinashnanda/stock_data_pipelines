@@ -47,3 +47,7 @@ ipykernel
 jupyter
 pytest
 pyinstaller
+
+[quant]
+backtesting
+vectorbt

@@ -6130,6 +6130,7 @@ apps/web_app/server/handler.py
 apps/web_app/server/routes_announcements.py
 apps/web_app/server/routes_core.py
 apps/web_app/server/routes_hedgefund.py
+apps/web_app/server/routes_strategy.py
 apps/web_app/server/screener.py
 apps/web_app/server/utils.py
 config/__init__.py
@@ -6231,6 +6232,16 @@ packages/shared_db/__init__.py
 packages/shared_db/common.py
 packages/shared_db/create_db.py
 packages/shared_db/db_utils.py
+packages/strategy_engine/__init__.py
+packages/strategy_engine/adapters.py
+packages/strategy_engine/data.py
+packages/strategy_engine/execution.py
+packages/strategy_engine/export.py
+packages/strategy_engine/live.py
+packages/strategy_engine/metrics.py
+packages/strategy_engine/runner.py
+packages/strategy_engine/sandbox.py
+packages/strategy_engine/storage.py
 stock_data_pipelines.egg-info/PKG-INFO
 stock_data_pipelines.egg-info/SOURCES.txt
 stock_data_pipelines.egg-info/dependency_links.txt

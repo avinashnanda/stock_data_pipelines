@@ -8,7 +8,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 from apps.web_app.server.constants import APP_DIR, TRADINGVIEW_DIR, SERVER_LOG_PATH
 from apps.web_app.server.utils import sanitize_json_value
-from apps.web_app.server import routes_core, routes_announcements, routes_hedgefund
+from apps.web_app.server import routes_core, routes_announcements, routes_hedgefund, routes_strategy
 
 # ── Regex for <!-- @include partials/xxx.html --> directives ─────────────────
 _INCLUDE_RE = re.compile(r'<!--\s*@include\s+([\w./\-]+)\s*-->')
@@ -48,6 +48,13 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path.startswith("/api/"):
             self._handle_api(parsed, method="DELETE")
+        else:
+            self.send_error(HTTPStatus.NOT_FOUND, "Unknown route")
+
+    def do_PUT(self):
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/"):
+            self._handle_api(parsed, method="PUT")
         else:
             self.send_error(HTTPStatus.NOT_FOUND, "Unknown route")
 
@@ -96,6 +103,40 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
             if p.startswith("/api/hedge-fund/custom-models/"):
                 mid = p.split("/api/hedge-fund/custom-models/")[1]
                 routes_hedgefund.handle_custom_model_delete(self, mid, method); return
+            if p == "/api/strategies":
+                routes_strategy.handle_strategies(self, method); return
+            if p == "/api/strategies/generate" and method == "POST":
+                routes_strategy.handle_strategy_generate(self); return
+            if p.startswith("/api/strategies/"):
+                strategy_id = p.split("/api/strategies/")[1]
+                routes_strategy.handle_strategy_detail(self, strategy_id, method); return
+            if p == "/api/strategy-lab/capabilities":
+                routes_strategy.handle_capabilities(self, method); return
+            if p == "/api/backtests":
+                routes_strategy.handle_backtests(self, method); return
+            if p.startswith("/api/backtests/"):
+                run_id = p.split("/api/backtests/")[1]
+                routes_strategy.handle_backtest_detail(self, run_id, method); return
+            if p == "/api/backtest/run" and method == "POST":
+                routes_strategy.handle_backtest_run(self); return
+            if p == "/api/backtest/export" and method == "POST":
+                routes_strategy.handle_backtest_export(self); return
+            if p == "/api/backtest/compare" and method == "POST":
+                routes_strategy.handle_backtest_compare(self); return
+            if p == "/api/backtest/optimize" and method == "POST":
+                routes_strategy.handle_backtest_optimize(self); return
+            if p.startswith("/api/backtest/optimize/") and method == "GET":
+                optimization_id = p.split("/api/backtest/optimize/")[1]
+                routes_strategy.handle_backtest_optimize_status(self, optimization_id); return
+            if p == "/api/paper" and method == "GET":
+                routes_strategy.handle_paper_list(self, method); return
+            if p == "/api/paper/start" and method == "POST":
+                routes_strategy.handle_paper_start(self); return
+            if p == "/api/paper/order" and method == "POST":
+                routes_strategy.handle_paper_order(self); return
+            if p.startswith("/api/paper/"):
+                session_id = p.split("/api/paper/")[1]
+                routes_strategy.handle_paper_detail(self, session_id, method); return
             self.send_error(HTTPStatus.NOT_FOUND, "Unknown API route")
         except Exception as exc:
             self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)

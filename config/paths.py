@@ -76,4 +76,7 @@ SCREENER_DB = DB_DIR / "screener_financials.duckdb"
 ANNOUNCEMENTS_DB = DB_DIR / "announcements.duckdb"
 FUNDAMENTALS_DB = DB_DIR / "fundamentals.duckdb"
 HEDGE_FUND_DB = DB_DIR / "hedge_fund.duckdb"
+STRATEGY_DB = DB_DIR / "strategy_lab.duckdb"
 WATCHLISTS_JSON = APP_DATA_DIR / "watchlists.json"
+STRATEGY_EXPORT_DIR = APP_DATA_DIR / "strategy_exports"
+STRATEGY_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
