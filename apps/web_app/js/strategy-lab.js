@@ -1514,25 +1514,105 @@ function renderStrategyOptimizationCharts(payload) {
 
   if (scoreCanvas) {
     const topRows = rows.slice(0, 5);
+    const colors = ["#2962ff", "#10b981", "#f5a623", "#f23645", "#8b5cf6"];
+    
+    // Find first available equity curve to get labels and buy_hold
+    const firstCurve = topRows.find(r => r.equity_curve && r.equity_curve.length)?.equity_curve || [];
+    const labels = firstCurve.map(p => p.time);
+    const buyHoldData = firstCurve.map(p => p.buy_hold);
+
+    const datasets = topRows.map((row, index) => ({
+      label: `#${index + 1}`,
+      data: (row.equity_curve || []).map((p) => p.equity),
+      borderColor: colors[index % colors.length],
+      backgroundColor: "transparent",
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.1,
+      fill: false,
+    }));
+
+    // Add Buy & Hold if available
+    if (buyHoldData.length > 0) {
+      datasets.push({
+        label: "Buy & Hold",
+        data: buyHoldData,
+        borderColor: "#94a3b8",
+        borderDash: [5, 5],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0,
+        fill: false,
+      });
+    }
+
     _strategyOptimizationScoreChart = new Chart(scoreCanvas.getContext("2d"), {
-      type: "bar",
+      type: "line",
       data: {
-        labels: topRows.map((row, index) => `#${index + 1}`),
-        datasets: [
-          {
-            label: "Return %",
-            data: topRows.map((row) => Number(row.metrics?.return_pct || 0)),
-            backgroundColor: "rgba(29, 158, 117, 0.72)",
-            borderColor: "#1d9e75",
-            borderWidth: 1,
-          },
-        ],
+        labels: labels,
+        datasets: datasets,
       },
       options: {
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: "bottom",
+            labels: { 
+              boxWidth: 12, 
+              font: { size: 11, weight: '500' }, 
+              color: "#94a3b8", 
+              usePointStyle: true,
+              padding: 15
+            },
+          },
+          tooltip: {
+            enabled: true,
+            backgroundColor: "rgba(17, 24, 39, 0.95)",
+            titleColor: "#94a3b8",
+            bodyColor: "#f8fafc",
+            borderColor: "rgba(255, 255, 255, 0.1)",
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {
+              label: (context) => {
+                const label = context.dataset.label;
+                const val = context.raw;
+                if (label === "Buy & Hold") return `${label}: ${formatCompactValue(val)}`;
+                const row = topRows[context.datasetIndex];
+                return `${label}: ${formatCompactValue(val)} (${JSON.stringify(row.params || {})})`;
+              },
+            },
+          },
+        },
         scales: {
-          y: { beginAtZero: false },
+          x: { 
+            display: false,
+            grid: { display: false }
+          },
+          y: {
+            beginAtZero: false,
+            title: {
+              display: true,
+              text: 'Equity ($)',
+              color: '#64748b',
+              font: { size: 10, weight: 'bold' }
+            },
+            grid: { 
+              color: "rgba(255, 255, 255, 0.06)",
+              drawBorder: false
+            },
+            ticks: {
+              font: { size: 10 },
+              color: "#64748b",
+              callback: (value) => formatCompactValue(Number(value)),
+              padding: 8
+            },
+          },
         },
       },
     });

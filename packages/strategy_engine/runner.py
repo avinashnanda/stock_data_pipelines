@@ -12,6 +12,7 @@ from packages.strategy_engine.adapters import get_engine_capabilities, resolve_o
 from packages.strategy_engine.data import load_ohlcv_dataframe
 from packages.strategy_engine.execution import compile_strategy_class
 from packages.strategy_engine.metrics import build_drawdown_curve, build_metrics
+import pandas as pd
 
 os.environ.setdefault("TQDM_DISABLE", "1")
 
@@ -251,6 +252,8 @@ class StrategyRunner:
                     "params": params,
                     "metrics": result["metrics"],
                     "score": score,
+                    "trades": result.get("trades", []),
+                    "equity_curve": result.get("equity_curve", []),
                 }
             )
             if progress_callback:
@@ -275,9 +278,10 @@ class StrategyRunner:
                 "best_params": best["params"],
                 "best_metrics": best["metrics"],
                 "leaderboard": ranked_runs[:25],
-                "heatmap": build_heatmap(parameter_grid, ranked_runs, objective),
+                "heatmap": build_heatmap(parameter_grid, runs, objective),
                 "heatmap_axes": [key for key in parameter_grid.keys() if key != "_constraints"][:2],
                 "robustness_zone": ranked_runs[:5],
+                "sensitivity": build_parameter_sensitivity(runs),
                 "diagnostics": diagnostics,
                 "engine": {
                     "selected": selected_engine,
@@ -437,25 +441,24 @@ class StrategyRunner:
                 ),
                 data,
             )
-            top_runs.append(
-                {
-                    "params": run["params"],
-                    "metrics": result["metrics"],
-                    "score": run["score"],
-                    "trades": result.get("trades", []),
-                    "equity_curve": result.get("equity_curve", []),
-                }
-            )
+            run_entry = {
+                "params": run["params"],
+                "metrics": result["metrics"],
+                "score": run["score"],
+                "trades": result.get("trades", []),
+                "equity_curve": result.get("equity_curve", []),
+            }
+            top_runs.append(run_entry)
 
         best = top_runs[0]
         return {
             "best_params": best["params"],
             "best_metrics": best["metrics"],
             "leaderboard": top_runs,
-            "heatmap": build_heatmap(parameter_grid, top_runs, objective),
+            "heatmap": build_heatmap(parameter_grid, heatmap_runs, objective),
             "heatmap_axes": [key for key in parameter_grid.keys() if key != "_constraints"][:2],
             "robustness_zone": top_runs[:5],
-            "sensitivity": build_parameter_sensitivity(top_runs),
+            "sensitivity": build_parameter_sensitivity(heatmap_runs),
             "walk_forward": build_walk_forward_placeholder(top_runs),
             "diagnostics": build_optimization_diagnostics(parameter_grid),
             "engine": {
@@ -515,7 +518,7 @@ def build_heatmap(parameter_grid: dict[str, Any], ranked_runs: list[dict[str, An
         {
             "x": run["params"].get(x_key),
             "y": run["params"].get(y_key),
-            "value": run["metrics"].get(objective),
+            "value": run.get("metrics", {}).get(objective) if "metrics" in run else run.get("score"),
         }
         for run in ranked_runs
     ]
@@ -541,7 +544,7 @@ def build_result_from_backtesting_stats(*, stats: Any, initial_cash: float, data
 
 
 def extract_backtesting_equity_curve(stats: Any, data: pd.DataFrame, initial_cash: float, trades: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    frame = stats.get("_equity_curve")
+    frame = getattr(stats, "_equity_curve", None)
     if frame is None or not hasattr(frame, "iterrows"):
         return []
 
@@ -567,7 +570,7 @@ def extract_backtesting_equity_curve(stats: Any, data: pd.DataFrame, initial_cas
 
 
 def extract_backtesting_trades(stats: Any, data: pd.DataFrame) -> list[dict[str, Any]]:
-    frame = stats.get("_trades")
+    frame = getattr(stats, "_trades", None)
     if frame is None or not hasattr(frame, "iterrows"):
         return []
     trades = []
