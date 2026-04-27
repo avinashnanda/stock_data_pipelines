@@ -16,6 +16,7 @@ let _strategyCapabilities = null;
 let _strategyPaperSessions = [];
 let _strategyActivePaperSessionId = null;
 let _strategyLatestRunContext = null;
+let _strategyLatestRunPayload = null;
 let _strategyModelList = [];
 let _strategyOptimizationPinnedRuns = new Map();
 const STRATEGY_SIDEBAR_COLLAPSED_KEY = "strategy_lab_sidebar_collapsed";
@@ -315,6 +316,14 @@ function _bindStrategyLabEvents() {
     });
   }
 
+  if ($("strategy-equity-view-mode")) {
+    $("strategy-equity-view-mode").addEventListener("change", () => {
+      if (_strategyLatestRunPayload) {
+        renderStrategyEquityChart(_strategyLatestRunPayload.equity_curve || []);
+      }
+    });
+  }
+
   window.addEventListener("keydown", (event) => {
     if (currentView !== "strategylab") return;
     if ((event.ctrlKey || event.metaKey) && event.key === "s") {
@@ -473,6 +482,7 @@ function resetStrategyForm(appendLog = false) {
   _strategySelectedId = null;
   _strategySelectedRunId = null;
   _strategyLatestRunContext = null;
+  _strategyLatestRunPayload = null;
   const starter = getStarterStrategyDraft();
   if ($("strategy-name")) $("strategy-name").value = starter.name;
   if ($("strategy-tags")) $("strategy-tags").value = starter.tags;
@@ -603,12 +613,13 @@ function renderStrategyList(items) {
           <h4 title="${escapeStrategyHtml(item.name || "")}">${escapeStrategyHtml(item.name || `Strategy ${index + 1}`)}</h4>
           <div class="strategy-list-meta">${escapeStrategyHtml((item.tags || []).join(" | ") || "No tags")}</div>
         </div>
+        <button type="button" class="strategy-delete-item-btn icon-button icon-button-text" title="Delete strategy">Delete</button>
       </div>
       <div class="strategy-list-desc">${escapeStrategyHtml(item.description || "No description yet.")}</div>
       <div class="strategy-list-meta" style="margin-top:8px">Updated ${escapeStrategyHtml(updated)}</div>
     `;
     button.addEventListener("click", (event) => {
-      if (event.target && event.target.classList.contains("strategy-compare-checkbox")) return;
+      if (event.target && (event.target.classList.contains("strategy-compare-checkbox") || event.target.classList.contains("strategy-delete-item-btn"))) return;
       loadStrategyIntoForm(item.id).catch((error) => _appendStrategyLog(`Load failed: ${error.message}`));
     });
     const checkbox = button.querySelector(".strategy-compare-checkbox");
@@ -620,6 +631,13 @@ function renderStrategyList(items) {
         } else {
           _strategyCompareSelection.delete(item.id);
         }
+      });
+    }
+    const deleteButton = button.querySelector(".strategy-delete-item-btn");
+    if (deleteButton) {
+      deleteButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        deleteStrategy(item.id).catch((error) => _appendStrategyLog(`Delete failed: ${error.message}`));
       });
     }
     list.appendChild(button);
@@ -769,6 +787,35 @@ async function loadStrategyIntoForm(strategyId) {
   _highlightSelectedStrategy();
 }
 
+async function deleteStrategy(strategyId) {
+  const item = _strategyListCache.find((s) => s.id === strategyId);
+  const name = item ? item.name : "this strategy";
+  if (!confirm(`Are you sure you want to delete "${name}"?`)) {
+    return;
+  }
+
+  try {
+    setStrategyRunStatus("Deleting...");
+    await window.strategyStorageApi.deleteStrategy(strategyId);
+    _appendStrategyLog(`Deleted strategy "${name}".`);
+
+    if (_strategySelectedId === strategyId) {
+      _strategySelectedId = null;
+      window.localStorage.removeItem("strategy_lab_last_strategy_id");
+      resetStrategyForm();
+    }
+
+    _strategyCompareSelection.delete(strategyId);
+    await refreshStrategyList();
+    setStrategyRunStatus("Deleted");
+  } catch (error) {
+    console.error(error);
+    setStrategyRunStatus("Delete Failed");
+    _appendStrategyLog(`Delete failed: ${error.message}`);
+    throw error;
+  }
+}
+
 async function generateStrategyFromPrompt() {
   const prompt = ($("strategy-generate-prompt")?.value || "").trim();
   if (!prompt) {
@@ -830,6 +877,7 @@ async function deleteBacktestRun(runId) {
 function renderStrategyRunResponse(payload) {
   const logs = payload.logs || [];
   const metrics = payload.metrics || {};
+  _strategyLatestRunPayload = payload;
   _strategyLatestRunContext = payload.context || payload.history_item?.result?.context || null;
   if (payload.run_id) {
     _strategySelectedRunId = payload.run_id;
@@ -1150,27 +1198,121 @@ function renderStrategyEquityChart(points) {
   _strategyEquityChart = null;
   if (!points.length) return;
 
+  const mode = $("strategy-equity-view-mode")?.value || "absolute";
+  const initialEquity = points[0]?.equity || 100000;
+  const initialBuyHold = points[0]?.buy_hold || initialEquity;
+
+  const labels = points.map((p) => p.time);
+  const equityData = points.map((p) => (mode === "percentage" ? ((p.equity / initialEquity) - 1) * 100 : p.equity));
+  const buyHoldData = points.map((p) => (mode === "percentage" ? ((p.buy_hold / initialBuyHold) - 1) * 100 : p.buy_hold));
+
   _strategyEquityChart = new Chart(context, {
     type: "line",
     data: {
-      labels: points.map((point) => point.time),
+      labels: labels,
       datasets: [
         {
-          data: points.map((point) => point.equity),
-          borderColor: "#2962ff",
-          backgroundColor: "rgba(41, 98, 255, 0.15)",
+          label: "Cumulative P&L",
+          data: equityData,
+          borderColor: "#10b981",
+          backgroundColor: "rgba(16, 185, 129, 0.12)",
           fill: true,
+          pointRadius: points.map((p) => (p.trade ? 4 : 0)),
+          pointHoverRadius: 6,
+          pointBackgroundColor: "#10b981",
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
+          tension: 0.15,
+          order: 2,
+        },
+        {
+          label: "Buy & Hold",
+          data: buyHoldData,
+          borderColor: "#2962ff",
+          backgroundColor: "transparent",
+          fill: false,
           pointRadius: 0,
-          tension: 0.25,
+          borderDash: [5, 5],
+          tension: 0.15,
+          order: 3,
+        },
+        {
+          label: "Excursions",
+          type: "bar",
+          data: points.map((p) => {
+            if (!p.trade) return null;
+            const base = mode === "percentage" ? ((p.equity / initialEquity) - 1) * 100 : p.equity;
+            const mfe = mode === "percentage" ? (p.trade.mfe / initialEquity) * 100 : p.trade.mfe;
+            const mae = mode === "percentage" ? (p.trade.mae / initialEquity) * 100 : p.trade.mae;
+            return [base + mae, base + mfe];
+          }),
+          backgroundColor: "rgba(255, 255, 255, 0.2)",
+          borderColor: "rgba(255, 255, 255, 0.4)",
+          borderWidth: 1,
+          barThickness: 2,
+          order: 1,
         },
       ],
     },
     options: {
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      interaction: {
+        mode: "index",
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: "top",
+          labels: {
+            usePointStyle: true,
+            boxWidth: 8,
+            font: { size: 11 },
+            color: "#94a3b8",
+          },
+        },
+        tooltip: {
+          enabled: true,
+          backgroundColor: "rgba(15, 23, 42, 0.94)",
+          titleColor: "#94a3b8",
+          bodyColor: "#f8fafc",
+          borderColor: "rgba(255, 255, 255, 0.1)",
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: function (context) {
+              const point = points[context.dataIndex];
+              const dataset = context.dataset;
+              if (dataset.label === "Excursions") {
+                if (!point.trade) return "";
+                const mfe = formatStrategyMetric(point.trade.mfe, mode === "percentage" ? "%" : "currency");
+                const mae = formatStrategyMetric(point.trade.mae, mode === "percentage" ? "%" : "currency");
+                return [
+                  `Trade #${context.dataIndex + 1} (${point.trade.side})`,
+                  `Favorable: ${mfe}`,
+                  `Adverse: ${mae}`,
+                ];
+              }
+              const val = context.raw;
+              const formatted = mode === "percentage" ? `${val.toFixed(2)}%` : formatCompactValue(val);
+              return `${dataset.label}: ${formatted}`;
+            },
+          },
+        },
+      },
       scales: {
-        x: { ticks: { maxTicksLimit: 8 } },
-        y: { ticks: { callback: (value) => formatCompactValue(Number(value)) } },
+        x: {
+          grid: { display: false },
+          ticks: { maxTicksLimit: 12, color: "#64748b", font: { size: 10 } },
+        },
+        y: {
+          grid: { color: "rgba(255, 255, 255, 0.04)" },
+          ticks: {
+            color: "#64748b",
+            font: { size: 10 },
+            callback: (value) => (mode === "percentage" ? `${value.toFixed(1)}%` : formatCompactValue(Number(value))),
+          },
+        },
       },
     },
   });

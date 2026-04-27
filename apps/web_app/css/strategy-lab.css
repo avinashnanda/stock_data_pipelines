@@ -1058,3 +1058,22 @@
     flex-direction: column;
   }
 }
+.strategy-results-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 12px;
+}
+
+.strategy-compact-select {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.strategy-results-panel.fullscreen .strategy-chart-canvas-wrap {
+  height: 60vh;
+}

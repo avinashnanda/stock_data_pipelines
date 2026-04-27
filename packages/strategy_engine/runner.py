@@ -324,6 +324,7 @@ class StrategyRunner:
         return build_result_from_backtesting_stats(
             stats=stats,
             initial_cash=request.initial_cash,
+            data=normalized,
             logs=[
                 {
                     "level": "info",
@@ -520,9 +521,9 @@ def build_heatmap(parameter_grid: dict[str, Any], ranked_runs: list[dict[str, An
     ]
 
 
-def build_result_from_backtesting_stats(*, stats: Any, initial_cash: float, logs: list[dict[str, str]] | None = None) -> dict[str, Any]:
-    equity_curve = extract_backtesting_equity_curve(stats)
-    trades = extract_backtesting_trades(stats)
+def build_result_from_backtesting_stats(*, stats: Any, initial_cash: float, data: pd.DataFrame, logs: list[dict[str, str]] | None = None) -> dict[str, Any]:
+    trades = extract_backtesting_trades(stats, data)
+    equity_curve = extract_backtesting_equity_curve(stats, data, initial_cash, trades)
     metrics = merge_backtesting_metrics(
         build_metrics(equity_curve=equity_curve, trades=trades, initial_cash=initial_cash),
         stats,
@@ -539,22 +540,33 @@ def build_result_from_backtesting_stats(*, stats: Any, initial_cash: float, logs
     )
 
 
-def extract_backtesting_equity_curve(stats: Any) -> list[dict[str, Any]]:
+def extract_backtesting_equity_curve(stats: Any, data: pd.DataFrame, initial_cash: float, trades: list[dict[str, Any]]) -> list[dict[str, Any]]:
     frame = stats.get("_equity_curve")
     if frame is None or not hasattr(frame, "iterrows"):
         return []
+
+    trade_exits = {t["exit_time"]: t for t in trades if t.get("exit_time")}
+    first_close = float(data["Close"].iloc[0]) if not data.empty else 1.0
+
     points = []
     for index, row in frame.iterrows():
-        points.append(
-            {
-                "time": format_time_value(index),
-                "equity": round(float(row.get("Equity", 0.0)), 4),
-            }
-        )
+        time_str = format_time_value(index)
+        close_at_time = float(data.loc[index, "Close"]) if index in data.index else first_close
+        buy_hold = initial_cash * (close_at_time / first_close)
+
+        point = {
+            "time": time_str,
+            "equity": round(float(row.get("Equity", 0.0)), 4),
+            "buy_hold": round(float(buy_hold), 4),
+        }
+        if time_str in trade_exits:
+            point["trade"] = trade_exits[time_str]
+
+        points.append(point)
     return points
 
 
-def extract_backtesting_trades(stats: Any) -> list[dict[str, Any]]:
+def extract_backtesting_trades(stats: Any, data: pd.DataFrame) -> list[dict[str, Any]]:
     frame = stats.get("_trades")
     if frame is None or not hasattr(frame, "iterrows"):
         return []
@@ -566,20 +578,46 @@ def extract_backtesting_trades(stats: Any) -> list[dict[str, Any]]:
         pnl = float(row.get("PnL", 0) or 0)
         pnl_pct = float(row.get("ReturnPct", 0) or 0) * 100
         side = "LONG" if size > 0 else "SHORT"
-        trades.append(
-            {
-                "date": format_time_value(row.get("ExitTime")),
-                "side": side,
-                "qty": abs(size),
-                "entry": round(entry_price, 4),
-                "exit": round(exit_price, 4),
-                "pnl": round(pnl, 4),
-                "pnl_pct": round(pnl_pct, 4),
-                "entry_time": format_time_value(row.get("EntryTime")),
-                "exit_time": format_time_value(row.get("ExitTime")),
-            }
-        )
+
+        entry_time = row.get("EntryTime")
+        exit_time = row.get("ExitTime")
+
+        trade = {
+            "date": format_time_value(exit_time),
+            "side": side,
+            "qty": abs(size),
+            "entry": round(entry_price, 4),
+            "exit": round(exit_price, 4),
+            "pnl": round(pnl, 4),
+            "pnl_pct": round(pnl_pct, 4),
+            "entry_time": format_time_value(entry_time),
+            "exit_time": format_time_value(exit_time),
+        }
+
+        # Calculate MFE / MAE
+        if entry_time and exit_time and index_exists_in_data(entry_time, data) and index_exists_in_data(exit_time, data):
+            try:
+                trade_slice = data.loc[entry_time:exit_time]
+                if not trade_slice.empty:
+                    if side == "LONG":
+                        max_favorable = float(trade_slice["High"].max())
+                        max_adverse = float(trade_slice["Low"].min())
+                        trade["mfe"] = round((max_favorable - entry_price) * abs(size), 4)
+                        trade["mae"] = round((max_adverse - entry_price) * abs(size), 4)
+                    else:
+                        max_favorable = float(trade_slice["Low"].min())
+                        max_adverse = float(trade_slice["High"].max())
+                        trade["mfe"] = round((entry_price - max_favorable) * abs(size), 4)
+                        trade["mae"] = round((entry_price - max_adverse) * abs(size), 4)
+            except Exception:
+                pass
+
+        trades.append(trade)
     return trades
+
+
+def index_exists_in_data(index: Any, data: pd.DataFrame) -> bool:
+    return index in data.index
 
 
 def build_signals_from_trades(trades: list[dict[str, Any]]) -> list[dict[str, Any]]:
