@@ -73,6 +73,14 @@
     <div class="strategy-split-handle strategy-sidebar-handle" data-split-target="sidebar" aria-hidden="true"></div>
 
     <section class="strategy-workspace">
+      <div class="strategy-primary-tabs" role="tablist" aria-label="Strategy Lab mode">
+        <button id="strategy-primary-backtest" type="button" class="strategy-primary-tab active"
+          data-strategy-primary-tab="backtest">Backtest</button>
+        <button id="strategy-primary-optimize" type="button" class="strategy-primary-tab"
+          data-strategy-primary-tab="optimize">Optimize</button>
+      </div>
+
+      <div id="strategy-backtest-tab-pane" class="strategy-primary-tab-pane">
       <div class="strategy-toolbar">
         <div class="strategy-toolbar-left">
           <div class="strategy-toolbar-symbol">
@@ -146,7 +154,7 @@
             <div class="strategy-panel-actions">
               <div id="strategy-run-status" class="strategy-status-pill">Ready</div>
               <button id="strategy-run-btn" type="button" class="primary-button">Run Backtest</button>
-              <button id="strategy-optimize-btn" type="button" class="secondary-button">Optimize</button>
+              <button id="strategy-optimize-btn" type="button" class="secondary-button strategy-purple-button">Send to Optimizer -&gt;</button>
             </div>
           </div>
           <div id="strategy-chart-host" class="strategy-chart-host"></div>
@@ -240,51 +248,6 @@
                   spellcheck="false">{&#10;  "fast_length": {"start": 5, "end": 20, "step": 1},&#10;  "slow_length": {"start": 30, "end": 100, "step": 5},&#10;  "_constraints": ["fast_length < slow_length"]&#10;}</textarea>
               </div>
             </div>
-            <div class="strategy-optimizer-setup">
-              <section class="strategy-optimizer-card strategy-optimizer-card-wide">
-                <div class="strategy-optimization-card-header">
-                  <h4>Parameter Ranges</h4>
-                  <button id="strategy-opt-sync-params-btn" type="button" class="secondary-button">Sync From
-                    JSON</button>
-                </div>
-                <div id="strategy-opt-param-rows" class="strategy-opt-param-rows"></div>
-              </section>
-              <section class="strategy-optimizer-card">
-                <div class="strategy-optimization-card-header">
-                  <h4>Method</h4>
-                  <span class="strategy-optimization-meta">backtesting.py optimize</span>
-                </div>
-                <div class="strategy-method-grid">
-                  <label><input type="radio" name="strategy-opt-method" value="grid" checked /> Grid</label>
-                  <label><input type="radio" name="strategy-opt-method" value="random" /> Random</label>
-                  <label><input type="radio" name="strategy-opt-method" value="genetic" /> Genetic</label>
-                  <label><input type="radio" name="strategy-opt-method" value="bayesian" /> Bayesian</label>
-                  <label><input type="radio" name="strategy-opt-method" value="walk-forward" /> Walk-forward</label>
-                </div>
-              </section>
-              <section class="strategy-optimizer-card">
-                <div class="strategy-optimization-card-header">
-                  <h4>Execution</h4>
-                  <span class="strategy-optimization-meta">Budget</span>
-                </div>
-                <div class="strategy-execution-grid">
-                  <label>Runs <input id="strategy-opt-max-runs" type="number" min="1" value="512" /></label>
-                  <label>Generations <input id="strategy-opt-generations" type="number" min="1" value="20" /></label>
-                  <label>Cores <input id="strategy-opt-cores" type="number" min="1" value="1" /></label>
-                  <label>Time Budget <input id="strategy-opt-time-budget" type="text" value="120s" /></label>
-                  <label>In Sample % <input id="strategy-opt-insample" type="number" min="1" max="99"
-                      value="70" /></label>
-                </div>
-              </section>
-              <section class="strategy-optimizer-card strategy-optimizer-card-wide">
-                <div class="strategy-optimization-card-header">
-                  <h4>Custom Objective</h4>
-                  <span class="strategy-optimization-meta">Weighted formula</span>
-                </div>
-                <input id="strategy-opt-custom-formula" class="strategy-formula-input" type="text"
-                  value="0.5*sharpe + 0.3*return_pct - 0.2*abs(max_drawdown)" />
-              </section>
-            </div>
           </div>
 
           <div id="strategy-pane-logs" class="strategy-tab-pane hidden">
@@ -345,7 +308,6 @@
             <button type="button" class="strategy-tab" data-results-tab="equity">Equity Curve</button>
             <button type="button" class="strategy-tab" data-results-tab="drawdown">Drawdown</button>
             <button type="button" class="strategy-tab" data-results-tab="compare">Compare Strategies</button>
-            <button type="button" class="strategy-tab" data-results-tab="optimization">Optimization Results</button>
             <div class="strategy-tab-spacer"></div>
             <div class="strategy-results-toggle-group">
               <label for="strategy-equity-view-mode">View</label>
@@ -393,18 +355,21 @@
               <table class="strategy-results-table">
                 <thead>
                   <tr>
-                    <th>Date</th>
+                    <th>#</th>
                     <th>Side</th>
-                    <th>Qty</th>
-                    <th>Entry</th>
-                    <th>Exit</th>
-                    <th>PnL</th>
+                    <th>Entry Date</th>
+                    <th>Entry Price</th>
+                    <th>Exit Date</th>
+                    <th>Exit Price</th>
+                    <th>Size</th>
+                    <th>P&amp;L $</th>
                     <th>PnL %</th>
+                    <th>Bars held</th>
                   </tr>
                 </thead>
                 <tbody id="strategy-trades-body">
                   <tr>
-                    <td colspan="7" class="strategy-empty-cell">Run a backtest to populate trades.</td>
+                    <td colspan="10" class="strategy-empty-cell">Run a backtest to populate trades.</td>
                   </tr>
                 </tbody>
               </table>
@@ -451,93 +416,239 @@
               </div>
             </div>
           </div>
+        </section>
+      </div>
+      </div>
 
-          <div id="strategy-results-optimization" class="strategy-results-pane hidden">
-            <div id="strategy-optimization-summary" class="strategy-empty-state">Optimization results will appear here.
+      <div id="strategy-optimize-tab-pane" class="strategy-primary-tab-pane hidden">
+        <div class="strategy-toolbar strategy-optimize-toolbar">
+          <div class="strategy-toolbar-left">
+            <div class="strategy-toolbar-symbol strategy-loaded-chip">
+              <span class="strategy-toolbar-label">Loaded Strategy</span>
+              <strong id="strategy-opt-loaded-chip">NSE:RELIANCE - Simple SMA Cross - fast=10 - slow=30</strong>
             </div>
-            <div id="strategy-optimization-diagnostics" class="strategy-optimization-diagnostics hidden"></div>
-            <div id="strategy-optimization-pinned" class="strategy-pinned-runs hidden"></div>
-            <div class="strategy-optimization-grid">
-              <section class="strategy-optimization-card">
-                <div class="strategy-optimization-card-header">
-                  <h4>Heatmap</h4>
-                  <span id="strategy-heatmap-axes" class="strategy-optimization-meta">Waiting for optimization
-                    data</span>
+            <div class="strategy-toolbar-field">
+              <label for="strategy-opt-strategy-select">Strategy</label>
+              <select id="strategy-opt-strategy-select"></select>
+            </div>
+            <button id="strategy-opt-load-backtest-btn" type="button" class="secondary-button">Load from Backtest</button>
+            <div class="strategy-toolbar-field">
+              <label for="strategy-opt-symbol">Symbol</label>
+              <input id="strategy-opt-symbol" type="text" value="NSE:RELIANCE" />
+            </div>
+            <div class="strategy-toolbar-field">
+              <label for="strategy-opt-timeframe">Timeframe</label>
+              <select id="strategy-opt-timeframe">
+                <option value="1">1m</option>
+                <option value="5">5m</option>
+                <option value="15">15m</option>
+                <option value="30">30m</option>
+                <option value="60">1h</option>
+                <option value="240">4h</option>
+                <option value="1D" selected>1D</option>
+                <option value="1W">1W</option>
+                <option value="1M">1M</option>
+              </select>
+            </div>
+            <div class="strategy-toolbar-field">
+              <label for="strategy-opt-start-date">Start</label>
+              <input id="strategy-opt-start-date" type="date" />
+            </div>
+            <div class="strategy-toolbar-field">
+              <label for="strategy-opt-end-date">End</label>
+              <input id="strategy-opt-end-date" type="date" />
+            </div>
+            <div class="strategy-toolbar-field">
+              <label for="strategy-opt-initial-cash">Capital</label>
+              <input id="strategy-opt-initial-cash" type="number" min="0" step="1000" value="100000" />
+            </div>
+            <div class="strategy-toolbar-field">
+              <label for="strategy-opt-commission">Commission</label>
+              <input id="strategy-opt-commission" type="number" min="0" step="0.0001" value="0" />
+            </div>
+          </div>
+          <div class="strategy-panel-actions">
+            <div id="strategy-opt-run-status" class="strategy-status-pill">Ready</div>
+            <button id="strategy-run-optimization-btn" type="button" class="primary-button strategy-purple-button">Run Optimization</button>
+            <button id="strategy-save-optimization-btn" type="button" class="secondary-button">Save Session</button>
+          </div>
+        </div>
+
+        <div class="strategy-optimize-grid">
+          <main class="strategy-optimize-center">
+            <section id="strategy-optimize-setup" class="strategy-optimize-section">
+              <div class="strategy-panel-header">
+                <div>
+                  <div class="strategy-panel-kicker">Setup</div>
+                  <h3>Optimization Setup</h3>
                 </div>
-                <div id="strategy-heatmap-wrap" class="strategy-heatmap-wrap">
-                  <div id="strategy-heatmap-empty" class="strategy-empty-state">Heatmap will appear after optimization.
+              </div>
+              <div class="strategy-optimize-section-body">
+                <section class="strategy-optimizer-card strategy-optimizer-card-wide">
+                  <div class="strategy-optimization-card-header">
+                    <h4>Parameters</h4>
+                    <button id="strategy-opt-sync-params-btn" type="button" class="secondary-button">Sync From JSON</button>
                   </div>
-                  <div id="strategy-heatmap-grid" class="strategy-heatmap-grid hidden"></div>
+                  <div id="strategy-opt-param-rows" class="strategy-opt-param-rows"></div>
+                </section>
+                <section class="strategy-optimizer-card strategy-optimizer-card-wide">
+                  <div class="strategy-optimization-card-header">
+                    <h4>Method</h4>
+                    <span class="strategy-optimization-meta">Optimization search</span>
+                  </div>
+                  <div class="strategy-method-grid strategy-method-card-grid">
+                    <label><input type="radio" name="strategy-opt-method" value="grid" /> <strong>Grid</strong><span>Exhaustive combinations</span></label>
+                    <label><input type="radio" name="strategy-opt-method" value="random" /> <strong>Random</strong><span>Fast sampling</span></label>
+                    <label><input type="radio" name="strategy-opt-method" value="bayesian" checked /> <strong>Bayesian</strong><span>Prior-guided search</span></label>
+                    <label><input type="radio" name="strategy-opt-method" value="genetic" /> <strong>Genetic</strong><span>Evolutionary search</span></label>
+                  </div>
+                </section>
+                <section class="strategy-optimizer-card">
+                  <div class="strategy-optimization-card-header">
+                    <h4>Objective</h4>
+                    <span class="strategy-optimization-meta">Default: Sharpe</span>
+                  </div>
+                  <div class="strategy-objective-list">
+                    <label><input type="radio" name="strategy-opt-objective-radio" value="return_pct" /> Net return</label>
+                    <label><input type="radio" name="strategy-opt-objective-radio" value="sharpe" checked /> Sharpe ratio</label>
+                    <label><input type="radio" name="strategy-opt-objective-radio" value="sortino" /> Sortino ratio</label>
+                    <label><input type="radio" name="strategy-opt-objective-radio" value="profit_factor" /> Profit factor</label>
+                    <label><input type="radio" name="strategy-opt-objective-radio" value="calmar" /> Calmar ratio</label>
+                    <label><input type="radio" name="strategy-opt-objective-radio" value="custom" /> Custom formula</label>
+                  </div>
+                  <input id="strategy-opt-custom-formula" class="strategy-formula-input" type="text"
+                    value="0.5 * sharpe + 0.3 * ret - 0.2 * dd" />
+                </section>
+                <section class="strategy-optimizer-card">
+                  <div class="strategy-optimization-card-header">
+                    <h4>Execution</h4>
+                    <span class="strategy-optimization-meta">Budget</span>
+                  </div>
+                  <div class="strategy-execution-grid">
+                    <label>Max runs <input id="strategy-opt-max-runs" type="number" min="1" value="512" /></label>
+                    <label>CPU cores <input id="strategy-opt-cores" type="number" min="1" value="4" /></label>
+                    <label>Time budget <input id="strategy-opt-time-budget" type="text" value="120s" /></label>
+                    <label>Walk-forward <input id="strategy-opt-walkforward" type="number" min="1" value="6" /></label>
+                    <label>In-sample % <input id="strategy-opt-insample" type="number" min="1" max="99" value="70" /></label>
+                    <label>Generations <input id="strategy-opt-generations" type="number" min="1" value="20" /></label>
+                  </div>
+                </section>
+                <div id="strategy-opt-progress" class="strategy-opt-progress hidden">
+                  <div class="strategy-opt-progress-label">0 / 512 runs - 0s elapsed</div>
+                  <div class="strategy-opt-progress-track"><span></span></div>
                 </div>
-              </section>
-              <section class="strategy-optimization-card">
-                <div class="strategy-optimization-card-header">
-                  <h4>Parameter Sensitivity</h4>
-                  <span class="strategy-optimization-meta">Estimated importance</span>
+              </div>
+            </section>
+
+            <section id="strategy-optimize-results" class="strategy-optimize-section">
+              <div class="strategy-panel-header">
+                <div>
+                  <div class="strategy-panel-kicker">Results</div>
+                  <h3>Optimization Results</h3>
                 </div>
-                <div id="strategy-robustness-summary" class="strategy-empty-state">Robustness analysis will appear here.
+                <button id="strategy-export-optimization-csv-btn" type="button" class="secondary-button">Export CSV</button>
+              </div>
+              <div class="strategy-optimize-section-body">
+                <div id="strategy-optimization-summary" class="strategy-empty-state">Optimization results will appear here.</div>
+                <div id="strategy-optimization-diagnostics" class="strategy-optimization-diagnostics hidden"></div>
+                <div id="strategy-optimization-pinned" class="strategy-pinned-runs hidden"></div>
+                <div id="strategy-pinned-comparison-table" class="strategy-table-shell hidden"></div>
+                <div class="strategy-optimization-grid">
+                  <section class="strategy-optimization-card">
+                    <div class="strategy-optimization-card-header">
+                      <h4>Profit Factor Heatmap</h4>
+                      <span id="strategy-heatmap-axes" class="strategy-optimization-meta">Waiting for optimization data</span>
+                    </div>
+                    <div class="strategy-axis-row">
+                      <select id="strategy-heatmap-x-axis"></select>
+                      <select id="strategy-heatmap-y-axis"></select>
+                    </div>
+                    <div id="strategy-heatmap-wrap" class="strategy-heatmap-wrap">
+                      <div id="strategy-heatmap-empty" class="strategy-empty-state">Heatmap will appear after optimization.</div>
+                      <div id="strategy-heatmap-grid" class="strategy-heatmap-grid hidden"></div>
+                    </div>
+                    <div class="strategy-heatmap-legend"><span>Low</span><strong></strong><span>High PF</span></div>
+                  </section>
+                  <section class="strategy-optimization-card">
+                    <div class="strategy-optimization-card-header">
+                      <h4>Parameter Sensitivity</h4>
+                      <span id="strategy-sensitivity-title" class="strategy-optimization-meta">Impact on Sharpe ratio</span>
+                    </div>
+                    <div id="strategy-robustness-summary" class="strategy-empty-state">Robustness analysis will appear here.</div>
+                    <div class="strategy-table-shell">
+                      <table class="strategy-results-table">
+                        <thead>
+                          <tr><th>Parameter</th><th>Impact</th><th>Sensitivity</th></tr>
+                        </thead>
+                        <tbody id="strategy-robustness-body">
+                          <tr><td colspan="3" class="strategy-empty-cell">No sensitivity rows yet.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                </div>
+                <div class="strategy-optimization-grid strategy-optimization-grid-secondary">
+                  <section class="strategy-optimization-card">
+                    <div class="strategy-optimization-card-header">
+                      <h4>Return vs Drawdown</h4>
+                      <span class="strategy-optimization-meta">Pareto frontier</span>
+                    </div>
+                    <div class="strategy-chart-canvas-wrap"><canvas id="strategy-optimization-scatter-chart"></canvas></div>
+                  </section>
+                  <section class="strategy-optimization-card">
+                    <div class="strategy-optimization-card-header">
+                      <h4>Top 5 Equity Curves</h4>
+                      <span class="strategy-optimization-meta">Buy and hold baseline</span>
+                    </div>
+                    <div class="strategy-chart-canvas-wrap"><canvas id="strategy-optimization-score-chart"></canvas></div>
+                  </section>
+                </div>
+                <div class="strategy-optimization-grid strategy-optimization-grid-secondary">
+                  <section class="strategy-optimization-card">
+                    <div class="strategy-optimization-card-header">
+                      <h4>Walk-forward Windows</h4>
+                      <span class="strategy-optimization-meta">OOS consistency</span>
+                    </div>
+                    <div class="strategy-chart-canvas-wrap"><canvas id="strategy-walkforward-chart"></canvas></div>
+                    <div id="strategy-walkforward-summary" class="strategy-empty-state">Consistency %, average OOS return, and stability appear after a run.</div>
+                  </section>
+                  <section class="strategy-optimization-card">
+                    <div class="strategy-optimization-card-header">
+                      <h4>Overfitting Detection</h4>
+                      <span class="strategy-optimization-meta">IS/OOS gap</span>
+                    </div>
+                    <div id="strategy-overfit-panel" class="strategy-overfit-panel"></div>
+                  </section>
                 </div>
                 <div class="strategy-table-shell">
                   <table class="strategy-results-table">
                     <thead>
                       <tr>
                         <th>Rank</th>
-                        <th>Parameter</th>
-                        <th>Impact</th>
-                        <th>Sensitivity</th>
+                        <th>Pin</th>
+                        <th>Params</th>
+                        <th>Return</th>
+                        <th>Sharpe</th>
+                        <th>Profit Factor</th>
+                        <th>Max DD</th>
+                        <th>Win%</th>
+                        <th>Trades</th>
+                        <th>Overfitting</th>
                       </tr>
                     </thead>
-                    <tbody id="strategy-robustness-body">
-                      <tr>
-                        <td colspan="4" class="strategy-empty-cell">No sensitivity rows yet.</td>
-                      </tr>
+                    <tbody id="strategy-optimization-body">
+                      <tr><td colspan="10" class="strategy-empty-cell">No optimization run yet.</td></tr>
                     </tbody>
                   </table>
                 </div>
-              </section>
-            </div>
-            <div class="strategy-optimization-grid strategy-optimization-grid-secondary">
-              <section class="strategy-optimization-card">
-                <div class="strategy-optimization-card-header">
-                  <h4>Return vs Drawdown</h4>
-                  <span class="strategy-optimization-meta">Pareto scan</span>
-                </div>
-                <div class="strategy-chart-canvas-wrap">
-                  <canvas id="strategy-optimization-scatter-chart"></canvas>
-                </div>
-              </section>
-              <section class="strategy-optimization-card">
-                <div class="strategy-optimization-card-header">
-                  <h4>Top 5 Equity Curves</h4>
-                  <span class="strategy-optimization-meta">Comparison</span>
-                </div>
-                <div class="strategy-chart-canvas-wrap">
-                  <canvas id="strategy-optimization-score-chart"></canvas>
-                </div>
-              </section>
-            </div>
-            <div class="strategy-table-shell">
-              <table class="strategy-results-table">
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Params</th>
-                    <th>Score</th>
-                    <th>Return %</th>
-                    <th>Sharpe</th>
-                    <th>Max DD</th>
-                    <th>Pin</th>
-                  </tr>
-                </thead>
-                <tbody id="strategy-optimization-body">
-                  <tr>
-                    <td colspan="7" class="strategy-empty-cell">No optimization run yet.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
+              </div>
+            </section>
+          </main>
+
+          <aside class="strategy-run-detail-panel">
+            <div id="strategy-selected-run-detail" class="strategy-empty-state">Select a run to inspect details.</div>
+          </aside>
+        </div>
       </div>
     </section>
   </div>
