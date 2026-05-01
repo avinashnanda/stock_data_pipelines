@@ -22,6 +22,7 @@ let _strategyOptimizationPinnedRuns = new Map();
 let _strategyPrimaryTab = "backtest";
 let _strategyLatestOptimizationPayload = null;
 let _strategySelectedOptimizationRun = null;
+let _strategyLoadedSessionId = null;
 let _strategySavedOptimizations = [];
 let _strategyRecentOptimizations = [];
 let _strategyWalkforwardChart = null;
@@ -55,6 +56,7 @@ function initStrategyLab() {
     initStrategyLabSplits();
   }
   initOptimizerLeftResize();
+  initMaximizeButtons();
   if (typeof initStrategyEditor === "function") {
     initStrategyEditor().catch((error) => console.error(error));
   }
@@ -94,7 +96,7 @@ function _initializeStrategyDates() {
 }
 
 function updateOptimizationExecutionHints() {
-  const method = document.querySelector('input[name="strategy-opt-method"]:checked')?.value || "grid";
+  const method = $("strategy-opt-method-select")?.value || "grid";
   const maxRuns = $("strategy-opt-max-runs");
   if (maxRuns) {
     maxRuns.disabled = method === "grid";
@@ -305,9 +307,7 @@ function _bindStrategyLabEvents() {
     button.addEventListener("click", () => activateOptimizationSection(button.dataset.optSection));
   });
 
-  document.querySelectorAll('input[name="strategy-opt-method"]').forEach((input) => {
-    input.addEventListener("change", updateOptimizationExecutionHints);
-  });
+  if ($("strategy-opt-method-select")) $("strategy-opt-method-select").addEventListener("change", updateOptimizationExecutionHints);
 
   if ($("strategy-opt-load-backtest-btn")) {
     $("strategy-opt-load-backtest-btn").addEventListener("click", () => sendBacktestToOptimizer(false));
@@ -348,11 +348,7 @@ function _bindStrategyLabEvents() {
     }
   });
 
-  if ($("strategy-opt-sync-params-btn")) {
-    $("strategy-opt-sync-params-btn").addEventListener("click", () => {
-      renderOptimizationParameterRows(parseOptimizationGridSafe());
-    });
-  }
+
 
   if ($("strategy-run-btn")) {
     $("strategy-run-btn").addEventListener("click", async () => {
@@ -1035,16 +1031,24 @@ function renderInPageOptimizationSessions() {
 function renderOptimizationSessionList(elementId, items, emptyText) {
   const node = $(elementId);
   if (!node) return;
-  node.innerHTML = items.length
-    ? items.map((item, index) => `
-      <button type="button" class="strategy-opt-session-item" data-session-index="${index}">
-        <strong>${escapeStrategyHtml(item.name || item.strategyName || "Optimization")}</strong>
-        <span>${escapeStrategyHtml(item.method || "Method")} | ${item.runs || 0} runs | ${formatStrategyMetric(item.bestReturn, "%")}</span>
-      </button>
-    `).join("")
-    : `<div class="strategy-empty-state">${escapeStrategyHtml(emptyText)}</div>`;
-  node.querySelectorAll("[data-session-index]").forEach((button) => {
-    button.addEventListener("click", () => loadOptimizationSession(items[Number(button.dataset.sessionIndex)]));
+  
+  if (!items || !items.length) {
+    node.innerHTML = `<option value="">${escapeStrategyHtml(emptyText)}</option>`;
+    return;
+  }
+  
+  node.innerHTML = `<option value="">-- Select session --</option>` + items.map((item, index) => {
+    const text = `${escapeStrategyHtml(item.name || item.strategyName || "Optimization")} (${escapeStrategyHtml(item.method || "Method")} - ${formatStrategyMetric(item.bestReturn, "%")})`;
+    const isSelected = (item.id && item.id === _strategyLoadedSessionId) ? "selected" : "";
+    return `<option value="${index}" ${isSelected}>${text}</option>`;
+  }).join("");
+  
+  const newSelect = node.cloneNode(true);
+  node.parentNode.replaceChild(newSelect, node);
+  newSelect.addEventListener("change", (e) => {
+    if (e.target.value !== "") {
+      loadOptimizationSession(items[Number(e.target.value)]);
+    }
   });
 }
 
@@ -1543,9 +1547,7 @@ async function runStrategyOptimization() {
 }
 
 function getOptimizationObjective() {
-  const selected = document.querySelector('input[name="strategy-opt-objective-radio"]:checked')?.value
-    || $("strategy-opt-objective")?.value
-    || "sharpe";
+  const selected = document.querySelector('input[name="strategy-opt-objective-radio"]:checked')?.value || $("strategy-opt-objective-select")?.value || $("strategy-opt-objective")?.value || "sharpe";
   return STRATEGY_SUPPORTED_OBJECTIVES.has(selected) ? selected : "sharpe";
 }
 
@@ -1635,7 +1637,7 @@ function parseOptimizationGridSafe() {
 }
 
 function collectOptimizationConfig() {
-  const selectedMethod = document.querySelector('input[name="strategy-opt-method"]:checked')?.value || "grid";
+  const selectedMethod = $("strategy-opt-method-select")?.value || "grid";
   const method = STRATEGY_SUPPORTED_OPT_METHODS.has(selectedMethod) ? selectedMethod : "grid";
   const maxRuns = Number($("strategy-opt-max-runs")?.value || 0) || null;
   return {
@@ -1669,7 +1671,7 @@ function renderOptimizationParameterRows(grid) {
   }).join("");
   wrap.innerHTML = `
     <div class="strategy-opt-param-row strategy-opt-param-head" aria-hidden="true">
-      <span>Parameter</span><span>Current</span><span>Min</span><span>Max</span><span>Step</span>
+      <span></span><span>Current</span><span>Min</span><span>Max</span><span>Step</span>
     </div>
     ${rows}
   `;
@@ -2007,7 +2009,14 @@ function renderStrategyOptimizationResults(payload) {
   const sensitivityRows = (payload.sensitivity && payload.sensitivity.length)
     ? payload.sensitivity
     : buildSyntheticSensitivity(payload);
-  const objectiveLabel = document.querySelector('input[name="strategy-opt-objective-radio"]:checked')?.value || "sharpe";
+  const objectiveLabel = document.querySelector('input[name="strategy-opt-objective-radio"]:checked')?.value || $("strategy-opt-objective-select")?.value || "sharpe";
+  const objectiveSelect = $("strategy-opt-objective-select");
+  if (objectiveSelect) {
+      objectiveSelect.addEventListener("change", (e) => {
+          const formula = $("strategy-opt-custom-formula");
+          if (formula) formula.style.display = e.target.value === "custom" ? "block" : "none";
+      });
+  }
   renderSensitivityPanel(sensitivityRows, objectiveLabel);
 
   renderStrategyHeatmap(payload);
@@ -2328,20 +2337,42 @@ function renderSelectedOptimizationRun(selection) {
     </div>
     <div class="strategy-detail-metrics">
       ${[
-        ["Net return", formatStrategyMetric(metrics.return_pct, "%")],
-        ["Sharpe", formatStrategyMetric(metrics.sharpe)],
-        ["Profit factor", formatStrategyMetric(metrics.profit_factor)],
-        ["Max DD", formatStrategyMetric(metrics.max_drawdown, "%")],
-        ["Win rate", formatStrategyMetric(metrics.win_rate, "%")],
-        ["Trades", formatStrategyMetric(metrics.total_trades, "count")],
-      ].map(([label, value]) => `<div class="strategy-metric-card"><span class="strategy-metric-label">${label}</span><strong class="strategy-metric-value">${value}</strong></div>`).join("")}
+        ["Net return", formatStrategyMetric(metrics.return_pct, "%"), metrics.return_pct],
+        ["Sharpe", formatStrategyMetric(metrics.sharpe), metrics.sharpe],
+        ["Profit factor", formatStrategyMetric(metrics.profit_factor), metrics.profit_factor],
+        ["Max DD", formatStrategyMetric(metrics.max_drawdown, "%"), metrics.max_drawdown],
+        ["Win rate", formatStrategyMetric(metrics.win_rate, "%"), metrics.win_rate],
+        ["Trades", formatStrategyMetric(metrics.total_trades, "count"), metrics.total_trades],
+      ].map(([label, value, raw]) => {
+          let colorClass = "";
+          const num = Number(raw);
+          if (label === "Net return") colorClass = num >= 0 ? "metric-positive" : "metric-negative";
+          else if (label === "Sharpe") colorClass = num >= 0 ? "metric-positive" : "metric-negative";
+          else if (label === "Profit factor") colorClass = num >= 1 ? "metric-positive" : "metric-negative";
+          else if (label === "Max DD") colorClass = Math.abs(num) <= 15 ? "metric-positive" : "metric-negative";
+          else if (label === "Win rate") colorClass = num >= 50 ? "metric-positive" : "metric-negative";
+          return `<div class="strategy-metric-card"><span class="strategy-metric-label">${label}</span><strong class="strategy-metric-value ${colorClass}">${value}</strong></div>`;
+      }).join("")}
     </div>
     <div class="strategy-mini-equity"><canvas id="strategy-selected-equity-chart"></canvas></div>
     <div class="strategy-table-shell strategy-detail-trades">
       <table class="strategy-results-table">
         <thead><tr><th>Side</th><th>Entry</th><th>Exit</th><th>P&amp;L</th></tr></thead>
         <tbody>
-          ${trades.length ? trades.map((trade) => `<tr><td>${escapeStrategyHtml(trade.side || "--")}</td><td>${escapeStrategyHtml(trade.entry_price || trade.entry || "--")}</td><td>${escapeStrategyHtml(trade.exit_price || trade.exit || "--")}</td><td>${escapeStrategyHtml(trade.pnl || "--")}</td></tr>`).join("") : '<tr><td colspan="4" class="strategy-empty-cell">No trade log returned.</td></tr>'}
+          ${trades.length ? trades.map((trade) => {
+              const pnlStr = String(trade.pnl || trade.PnL || trade.profit || "");
+              const pnlNum = Number(pnlStr.replace(/[^0-9.-]/g, ''));
+              let pnlClass = "";
+              if (!isNaN(pnlNum) && pnlNum !== 0 && pnlStr.trim() !== "") {
+                  pnlClass = pnlNum > 0 ? "metric-positive" : "metric-negative";
+              } else if (pnlStr.includes("+") || pnlNum > 0) pnlClass = "metric-positive";
+              else if (pnlStr.includes("-") || pnlNum < 0) pnlClass = "metric-negative";
+              
+              const sideStr = String(trade.side || "").toUpperCase();
+              const sideClass = (sideStr === "BUY" || sideStr === "LONG") ? "metric-positive" : ((sideStr === "SELL" || sideStr === "SHORT") ? "metric-negative" : "");
+              
+              return `<tr><td class="${sideClass}">${escapeStrategyHtml(trade.side || "--")}</td><td>${escapeStrategyHtml(trade.entry_price || trade.entry || "--")}</td><td>${escapeStrategyHtml(trade.exit_price || trade.exit || "--")}</td><td class="${pnlClass}">${escapeStrategyHtml(trade.pnl || trade.profit || trade.PnL || "--")}</td></tr>`;
+          }).join("") : '<tr><td colspan="4" class="strategy-empty-cell">No trade log returned.</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -2962,6 +2993,7 @@ function rememberRecentOptimization(payload) {
 
 function loadOptimizationSession(item) {
   if (!item) return;
+  _strategyLoadedSessionId = item.id || null;
   if (item.settings) {
     if ($("strategy-opt-symbol")) $("strategy-opt-symbol").value = item.settings.symbol || currentSymbol;
     if ($("strategy-opt-timeframe")) $("strategy-opt-timeframe").value = item.settings.timeframe || "1D";
@@ -3096,7 +3128,7 @@ function renderStrategyHeatmap(payload) {
   const metricValues = selectedHeatmap.map((item) => Number(item.value)).filter((value) => Number.isFinite(value));
   const minValue = metricValues.length ? Math.min(...metricValues) : 0;
   const maxValue = metricValues.length ? Math.max(...metricValues) : 1;
-  axesNode.textContent = `X-axis: ${xAxis} | Y-axis: ${yAxis} | Cell value: Profit factor | Cells: ${selectedHeatmap.length}`;
+  axesNode.innerHTML = `Showing <strong>${selectedHeatmap.length}</strong> tested parameter combinations`;
 
   const lookup = new Map(selectedHeatmap.map((item) => [`${item.x}__${item.y}`, item]));
   const header = [`<div class="strategy-heatmap-axis-cell strategy-heatmap-corner"><span>Y: ${escapeStrategyHtml(yAxis)}</span><strong>X: ${escapeStrategyHtml(xAxis)}</strong></div>`]
@@ -3108,13 +3140,10 @@ function renderStrategyHeatmap(payload) {
     xValues.forEach((xValue) => {
       const item = lookup.get(`${xValue}__${yValue}`);
       if (!item || !Number.isFinite(Number(item.value))) {
-        const filled = estimateHeatmapValue(selectedHeatmap, xValue, yValue, minValue);
-        const fillIntensity = maxValue === minValue ? 0.5 : (filled - minValue) / (maxValue - minValue);
-        const fillBg = `rgba(${Math.round(127 - fillIntensity * 48)}, ${Math.round(133 + fillIntensity * 52)}, ${Math.round(150 - fillIntensity * 36)}, 0.58)`;
         cells.push(`
-          <div class="strategy-heatmap-cell inferred" style="background:${fillBg}" title="No exact run for this pair; shown as estimated fill">
-            <span class="strategy-heatmap-value">${formatStrategyMetric(filled)}</span>
-            <span class="strategy-heatmap-subvalue">filled</span>
+          <div class="strategy-heatmap-cell empty" style="background:transparent; border-color:transparent; pointer-events:none;" title="No exact run for this pair">
+            <span class="strategy-heatmap-value" style="display:none;">--</span>
+            <span class="strategy-heatmap-subvalue" style="display:none;">no data</span>
           </div>
         `);
         return;
@@ -3255,4 +3284,27 @@ async function placePaperOrder() {
   }
   await refreshPaperSessions();
   _appendStrategyLog(`Paper order filled: ${side} ${qty} @ ${price}.`);
+}
+
+
+function initMaximizeButtons() {
+  document.querySelectorAll(".strategy-optimization-card-header").forEach(header => {
+    if (header.querySelector(".strategy-card-maximize-btn")) return;
+    const btn = document.createElement("button");
+    btn.className = "strategy-card-maximize-btn";
+    btn.type = "button";
+    btn.innerHTML = "&#x26F6;";
+    btn.style.cssText = "background:transparent; border:none; color:var(--opt-faint); cursor:pointer; font-size:14px; margin-left:auto;";
+    btn.title = "Maximize / Restore";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const card = header.closest(".strategy-optimization-card");
+      if (card) {
+        card.classList.toggle("strategy-card-maximized");
+      }
+    });
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.appendChild(btn);
+  });
 }

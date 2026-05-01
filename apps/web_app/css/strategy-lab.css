@@ -2129,8 +2129,30 @@
   border-radius: 12px;
   background: var(--opt-bg);
   padding: 0;
-  overflow: hidden;
+  overflow: auto;
+  resize: both;
 }
+
+.strategy-card-maximized {
+  position: fixed !important;
+  top: 60px !important;
+  left: 20px !important;
+  right: 20px !important;
+  bottom: 20px !important;
+  width: auto !important;
+  height: auto !important;
+  z-index: 9999 !important;
+  box-shadow: 0 10px 50px rgba(0,0,0,0.6) !important;
+  resize: none !important;
+}
+
+.strategy-card-maximized .strategy-chart-canvas-wrap,
+.strategy-card-maximized .strategy-heatmap-wrap {
+  height: calc(100vh - 180px) !important;
+  min-height: 400px !important;
+  max-height: none !important;
+}
+
 
 .strategy-optimization-card-header {
   padding: 9px 13px;
@@ -2317,14 +2339,16 @@
   background: rgba(41, 98, 255, 0.16);
 }
 
-.strategy-results-table .metric-positive {
-  color: #10b981;
-  font-weight: 700;
+.metric-positive {
+  color: #10b981 !important;
 }
 
-.strategy-results-table .metric-negative {
-  color: #f23645;
-  font-weight: 700;
+.metric-negative {
+  color: #f23645 !important;
+}
+
+.metric-warning {
+  color: #f59e0b !important;
 }
 
 .strategy-results-table .metric-warning {
@@ -2438,6 +2462,7 @@
     inset: 54px 12px 12px auto;
     width: min(430px, calc(100% - 24px));
     z-index: 10;
+    background: var(--bg) !important;
     border: 1px solid var(--opt-border-strong);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
   }

@@ -3,7 +3,7 @@
     <aside class="strategy-sidebar">
       <div class="strategy-sidebar-header">
         <div>
-          <div class="strategy-sidebar-kicker">Strategy Lab</div>
+          <div class="strategy-sidebar-kicker">QuantLab</div>
           <h3>Research Workspace</h3>
         </div>
         <div class="strategy-sidebar-actions">
@@ -69,21 +69,19 @@
       </div>
     </aside>
     <button id="strategy-sidebar-rail-toggle" type="button" class="strategy-sidebar-rail-toggle hidden"
-      aria-label="Show Strategy Lab sidebar" title="Show Strategy Lab sidebar">&gt;&gt;</button>
+      aria-label="Show QuantLab sidebar" title="Show QuantLab sidebar">&gt;&gt;</button>
     <div class="strategy-split-handle strategy-sidebar-handle" data-split-target="sidebar" aria-hidden="true"></div>
 
     <section class="strategy-workspace">
-      <div class="strategy-primary-tabs" role="tablist" aria-label="Strategy Lab mode">
-        <div class="strategy-primary-tabs-title"><span></span>QuantLab</div>
-        <button id="strategy-primary-backtest" type="button" class="strategy-primary-tab active"
-          data-strategy-primary-tab="backtest">Backtest</button>
-        <button id="strategy-primary-optimize" type="button" class="strategy-primary-tab"
-          data-strategy-primary-tab="optimize">Optimize</button>
-      </div>
+
 
       <div id="strategy-backtest-tab-pane" class="strategy-primary-tab-pane">
       <div class="strategy-toolbar">
         <div class="strategy-toolbar-left">
+          <div class="strategy-primary-tabs" role="tablist" aria-label="QuantLab mode" style="background:transparent; border:none; padding:0; margin-right:16px;">
+            <button type="button" class="strategy-primary-tab active" data-strategy-primary-tab="backtest">Backtest</button>
+            <button type="button" class="strategy-primary-tab" data-strategy-primary-tab="optimize">Optimize</button>
+          </div>
           <div class="strategy-toolbar-symbol">
             <span class="strategy-toolbar-label">Symbol</span>
             <strong id="strategy-current-symbol">NSE:RELIANCE</strong>
@@ -425,19 +423,20 @@
       <div id="strategy-optimize-tab-pane" class="strategy-primary-tab-pane hidden">
         <div class="strategy-opt-app">
           <div class="strategy-opt-topbar">
-            <div class="strategy-opt-logo"><span></span>QuantLab · Optimize</div>
+            <div class="strategy-primary-tabs" role="tablist" aria-label="QuantLab mode" style="background:transparent; border:none; padding:0; margin-right:16px;">
+              <button type="button" class="strategy-primary-tab" data-strategy-primary-tab="backtest">Backtest</button>
+              <button type="button" class="strategy-primary-tab active" data-strategy-primary-tab="optimize">Optimize</button>
+            </div>
             <span id="strategy-opt-runs-badge" class="strategy-opt-badge purple">512 runs</span>
             <span id="strategy-opt-loaded-chip" class="strategy-opt-badge green">NSE:RELIANCE · Simple SMA Cross</span>
             <div class="strategy-opt-spacer"></div>
             <div class="strategy-opt-pills">
-              <button type="button" class="active" data-opt-section="setup">Setup</button>
-              <button type="button" data-opt-section="results">Results</button>
+              <button type="button" class="active" data-opt-section="results">Results</button>
               <button type="button" data-opt-section="walkforward">Walk-forward</button>
               <button type="button" data-opt-section="compare">Compare</button>
             </div>
             <button id="strategy-export-optimization-csv-btn" type="button" class="strategy-opt-btn">Export CSV</button>
             <button id="strategy-save-optimization-btn" type="button" class="strategy-opt-btn">Save session</button>
-            <button id="strategy-toggle-detail-panel-btn" type="button" class="strategy-opt-btn">Expand detail</button>
             <button id="strategy-stop-optimization-btn" type="button" class="strategy-opt-btn hidden">Stop</button>
             <button id="strategy-run-optimization-btn" type="button" class="strategy-opt-btn primary">Run optimization</button>
           </div>
@@ -445,7 +444,6 @@
           <div class="strategy-opt-body">
             <aside class="strategy-opt-left">
               <div class="strategy-opt-sec">
-                <div class="strategy-opt-sec-label">Strategy</div>
                 <div class="strategy-toolbar-field">
                   <label for="strategy-opt-strategy-select">Strategy</label>
                   <select id="strategy-opt-strategy-select"></select>
@@ -472,42 +470,49 @@
               </div>
 
               <div class="strategy-opt-sec">
-                <div class="strategy-opt-sec-label">Saved optimization results</div>
-                <div id="strategy-opt-saved-sessions" class="strategy-opt-session-list"></div>
+                <div class="strategy-toolbar-field">
+                  <label for="strategy-opt-saved-sessions">Saved optimization results</label>
+                  <select id="strategy-opt-saved-sessions"><option value="">No saved results yet</option></select>
+                </div>
               </div>
 
               <div class="strategy-opt-sec">
-                <div class="strategy-opt-sec-label">Recent optimization runs</div>
-                <div id="strategy-opt-recent-sessions" class="strategy-opt-session-list"></div>
+                <div class="strategy-toolbar-field">
+                  <label for="strategy-opt-recent-sessions">Recent optimization runs</label>
+                  <select id="strategy-opt-recent-sessions"><option value="">No recent runs yet</option></select>
+                </div>
               </div>
 
               <div class="strategy-opt-sec">
                 <div class="strategy-opt-sec-label">Parameters</div>
-                <button id="strategy-opt-sync-params-btn" type="button" class="strategy-opt-btn full">Sync From JSON</button>
                 <div id="strategy-opt-param-rows" class="strategy-opt-param-rows"></div>
               </div>
 
               <div class="strategy-opt-sec">
-                <div class="strategy-opt-sec-label">Method</div>
-                <div class="strategy-method-grid strategy-method-card-grid">
-                  <label><input type="radio" name="strategy-opt-method" value="grid" /> <strong>Grid</strong><span>backtesting.py grid search</span></label>
-                  <label><input type="radio" name="strategy-opt-method" value="random" /> <strong>Random</strong><span>Grid with max tries</span></label>
-                  <label><input type="radio" name="strategy-opt-method" value="bayesian" checked /> <strong>SAMBO</strong><span>backtesting.py Bayesian</span></label>
+                <div class="strategy-toolbar-field">
+                  <label for="strategy-opt-method-select">Method</label>
+                  <select id="strategy-opt-method-select">
+                    <option value="grid">Grid (backtesting.py grid search)</option>
+                    <option value="random">Random (Grid with max tries)</option>
+                    <option value="bayesian" selected>SAMBO (backtesting.py Bayesian)</option>
+                  </select>
                 </div>
               </div>
 
               <div class="strategy-opt-sec">
-                <div class="strategy-opt-sec-label">Objective function</div>
-                <div class="strategy-objective-list">
-                  <label><input type="radio" name="strategy-opt-objective-radio" value="return_pct" /> Return %</label>
-                  <label><input type="radio" name="strategy-opt-objective-radio" value="sharpe" checked /> Sharpe ratio</label>
-                  <label><input type="radio" name="strategy-opt-objective-radio" value="sortino" /> Sortino ratio</label>
-                  <label><input type="radio" name="strategy-opt-objective-radio" value="profit_factor" /> Profit factor</label>
-                  <label><input type="radio" name="strategy-opt-objective-radio" value="max_drawdown" /> Lowest drawdown</label>
-                  <label><input type="radio" name="strategy-opt-objective-radio" value="calmar" /> Calmar ratio</label>
-                  <label><input type="radio" name="strategy-opt-objective-radio" value="custom" /> Custom formula</label>
+                <div class="strategy-toolbar-field">
+                  <label for="strategy-opt-objective-select">Objective function</label>
+                  <select id="strategy-opt-objective-select">
+                    <option value="return_pct">Return %</option>
+                    <option value="sharpe" selected>Sharpe ratio</option>
+                    <option value="sortino">Sortino ratio</option>
+                    <option value="profit_factor">Profit factor</option>
+                    <option value="max_drawdown">Lowest drawdown</option>
+                    <option value="calmar">Calmar ratio</option>
+                    <option value="custom">Custom formula</option>
+                  </select>
                 </div>
-                <input id="strategy-opt-custom-formula" class="strategy-formula-input" type="text" value="0.5 · sharpe + 0.3 · ret - 0.2 · dd" />
+                <input id="strategy-opt-custom-formula" class="strategy-formula-input" type="text" value="0.5 · sharpe + 0.3 · ret - 0.2 · dd" style="margin-top: 8px;" />
               </div>
 
               <div class="strategy-opt-sec">
