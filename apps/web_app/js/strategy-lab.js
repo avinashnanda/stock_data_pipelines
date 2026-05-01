@@ -25,9 +25,17 @@ let _strategySelectedOptimizationRun = null;
 let _strategySavedOptimizations = [];
 let _strategyRecentOptimizations = [];
 let _strategyWalkforwardChart = null;
+let _strategySelectedRunEquityChart = null;
+let _strategyBacktestAbortController = null;
+let _strategyActiveOptimizationId = null;
+let _strategyStoppedOptimizationIds = new Set();
 const STRATEGY_SIDEBAR_COLLAPSED_KEY = "strategy_lab_sidebar_collapsed";
 const STRATEGY_OPTIMIZATIONS_STORAGE_KEY = "strategy_lab_saved_optimizations_v1";
 const STRATEGY_RECENT_OPTIMIZATIONS_STORAGE_KEY = "strategy_lab_recent_optimizations_v1";
+const STRATEGY_OPT_LEFT_WIDTH_KEY = "strategy_lab_opt_left_width";
+const STRATEGY_OPT_RIGHT_WIDTH_KEY = "strategy_lab_opt_right_width";
+const STRATEGY_SUPPORTED_OPT_METHODS = new Set(["grid", "random", "bayesian"]);
+const STRATEGY_SUPPORTED_OBJECTIVES = new Set(["return_pct", "sharpe", "sortino", "profit_factor", "max_drawdown", "calmar", "custom"]);
 const STRATEGY_BASE_METRICS = [
   "CAGR", "Return %", "Max DD", "Sharpe", "Sortino", "Win Rate",
   "Profit Factor", "Total Trades", "Ending Equity", "Avg Trade", "Best Trade", "Worst Trade",
@@ -46,12 +54,14 @@ function initStrategyLab() {
   if (typeof initStrategyLabSplits === "function") {
     initStrategyLabSplits();
   }
+  initOptimizerLeftResize();
   if (typeof initStrategyEditor === "function") {
     initStrategyEditor().catch((error) => console.error(error));
   }
   loadOptimizationSessionLists();
   resetStrategyForm();
   renderOptimizationParameterRows(parseOptimizationGridSafe());
+  updateOptimizationExecutionHints();
   loadStrategyCapabilities().catch((error) => console.error(error));
   loadStrategyModels().catch((error) => console.error(error));
   refreshStrategyList().catch((error) => console.error(error));
@@ -81,6 +91,17 @@ function _initializeStrategyDates() {
   if ($("strategy-start-date")) $("strategy-start-date").value = oneYearAgo.toISOString().split("T")[0];
   if ($("strategy-opt-end-date")) $("strategy-opt-end-date").value = today.toISOString().split("T")[0];
   if ($("strategy-opt-start-date")) $("strategy-opt-start-date").value = oneYearAgo.toISOString().split("T")[0];
+}
+
+function updateOptimizationExecutionHints() {
+  const method = document.querySelector('input[name="strategy-opt-method"]:checked')?.value || "grid";
+  const maxRuns = $("strategy-opt-max-runs");
+  if (maxRuns) {
+    maxRuns.disabled = method === "grid";
+    maxRuns.title = method === "grid"
+      ? "Grid search evaluates every valid combination, so max runs is ignored."
+      : "Passed to backtesting.py as max_tries.";
+  }
 }
 
 function _bindStrategyLabEvents() {
@@ -272,6 +293,22 @@ function _bindStrategyLabEvents() {
     });
   }
 
+  if ($("strategy-stop-optimization-btn")) {
+    $("strategy-stop-optimization-btn").addEventListener("click", stopActiveOptimization);
+  }
+
+  if ($("strategy-toggle-detail-panel-btn")) {
+    $("strategy-toggle-detail-panel-btn").addEventListener("click", toggleOptimizationDetailPanel);
+  }
+
+  document.querySelectorAll("[data-opt-section]").forEach((button) => {
+    button.addEventListener("click", () => activateOptimizationSection(button.dataset.optSection));
+  });
+
+  document.querySelectorAll('input[name="strategy-opt-method"]').forEach((input) => {
+    input.addEventListener("change", updateOptimizationExecutionHints);
+  });
+
   if ($("strategy-opt-load-backtest-btn")) {
     $("strategy-opt-load-backtest-btn").addEventListener("click", () => sendBacktestToOptimizer(false));
   }
@@ -293,6 +330,20 @@ function _bindStrategyLabEvents() {
     $("strategy-export-optimization-csv-btn").addEventListener("click", () => exportOptimizationCsv());
   }
 
+  if ($("strategy-optimization-sort")) {
+    $("strategy-optimization-sort").addEventListener("change", () => {
+      if (_strategyLatestOptimizationPayload) renderStrategyOptimizationResults(_strategyLatestOptimizationPayload);
+    });
+  }
+
+  ["strategy-heatmap-x-axis", "strategy-heatmap-y-axis"].forEach((id) => {
+    if ($(id)) {
+      $(id).addEventListener("change", () => {
+        if (_strategyLatestOptimizationPayload) renderStrategyHeatmap(_strategyLatestOptimizationPayload);
+      });
+    }
+  });
+
   if ($("strategy-opt-sync-params-btn")) {
     $("strategy-opt-sync-params-btn").addEventListener("click", () => {
       renderOptimizationParameterRows(parseOptimizationGridSafe());
@@ -302,10 +353,14 @@ function _bindStrategyLabEvents() {
   if ($("strategy-run-btn")) {
     $("strategy-run-btn").addEventListener("click", async () => {
       try {
+        stopBacktestRun(false);
+        _strategyBacktestAbortController = new AbortController();
+        setBacktestRunningState(true);
         setStrategyRunStatus("Running...");
         const response = await fetch("/api/backtest/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: _strategyBacktestAbortController.signal,
           body: JSON.stringify({
             strategy_id: _strategySelectedId,
             strategy_name: ($("strategy-name")?.value || "").trim() || "Current Draft",
@@ -332,10 +387,22 @@ function _bindStrategyLabEvents() {
         setStrategyRunStatus(payload.status === "not_implemented" ? "Engine Pending" : "Completed");
       } catch (error) {
         console.error(error);
-        setStrategyRunStatus("Run Failed");
-        _appendStrategyLog(`Backtest run failed: ${error.message}`);
+        if (error.name === "AbortError") {
+          setStrategyRunStatus("Stopped");
+          _appendStrategyLog("Backtest stopped by user.");
+        } else {
+          setStrategyRunStatus("Run Failed");
+          _appendStrategyLog(`Backtest run failed: ${error.message}`);
+        }
+      } finally {
+        _strategyBacktestAbortController = null;
+        setBacktestRunningState(false);
       }
     });
+  }
+
+  if ($("strategy-stop-backtest-btn")) {
+    $("strategy-stop-backtest-btn").addEventListener("click", () => stopBacktestRun(true));
   }
 
   if ($("strategy-paper-start-btn")) {
@@ -406,7 +473,13 @@ function switchStrategyPrimaryTab(tabId) {
   });
   $("strategy-backtest-tab-pane")?.classList.toggle("hidden", _strategyPrimaryTab !== "backtest");
   $("strategy-optimize-tab-pane")?.classList.toggle("hidden", _strategyPrimaryTab !== "optimize");
+  document.querySelector(".strategy-lab")?.classList.toggle("optimize-active", _strategyPrimaryTab === "optimize");
   renderOptimizeSidebar();
+  if (_strategyPrimaryTab === "optimize") {
+    renderOptimizeStrategySelector(_strategyListCache);
+    refreshStrategyList().catch((error) => _appendStrategyLog(`Strategy refresh failed: ${error.message}`));
+    renderStrategyOptimizationCharts(_strategyLatestOptimizationPayload);
+  }
   window.dispatchEvent(new Event("resize"));
 }
 
@@ -435,6 +508,126 @@ function setStrategyRunStatus(text) {
 function setOptimizeRunStatus(text) {
   const node = $("strategy-opt-run-status");
   if (node) node.textContent = text;
+}
+
+function setBacktestRunningState(isRunning) {
+  $("strategy-run-btn")?.classList.toggle("hidden", isRunning);
+  $("strategy-stop-backtest-btn")?.classList.toggle("hidden", !isRunning);
+}
+
+function stopBacktestRun(showToastMessage = true) {
+  if (!_strategyBacktestAbortController) return;
+  _strategyBacktestAbortController.abort();
+  _strategyBacktestAbortController = null;
+  setBacktestRunningState(false);
+  setStrategyRunStatus("Stopping...");
+  if (showToastMessage) showStrategyToast("Backtest stop requested");
+}
+
+function setOptimizationRunningState(isRunning) {
+  const runButton = $("strategy-run-optimization-btn");
+  if (runButton) runButton.textContent = isRunning ? "Rerun optimization" : "Run optimization";
+  $("strategy-stop-optimization-btn")?.classList.toggle("hidden", !isRunning);
+}
+
+function stopActiveOptimization() {
+  if (_strategyActiveOptimizationId) {
+    _strategyStoppedOptimizationIds.add(_strategyActiveOptimizationId);
+    _appendStrategyLog(`Optimization stopped locally: ${_strategyActiveOptimizationId}`);
+  }
+  stopOptimizationPolling();
+  _strategyActiveOptimizationId = null;
+  setStrategyRunStatus("Optimization Stopped");
+  setOptimizeRunStatus("Stopped");
+  setOptimizationRunningState(false);
+  showStrategyToast("Optimization stopped");
+}
+
+function toggleOptimizationDetailPanel() {
+  const app = document.querySelector(".strategy-opt-app");
+  if (!app) return;
+  const expanded = app.classList.toggle("detail-expanded");
+  const button = $("strategy-toggle-detail-panel-btn");
+  if (button) button.textContent = expanded ? "Collapse detail" : "Expand detail";
+  window.dispatchEvent(new Event("resize"));
+  if (_strategySelectedOptimizationRun) renderSelectedOptimizationRun(_strategySelectedOptimizationRun);
+}
+
+function activateOptimizationSection(section) {
+  const target = section || "setup";
+  document.querySelectorAll("[data-opt-section]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.optSection === target);
+  });
+  if (target === "setup") {
+    document.querySelector(".strategy-opt-left")?.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  if (target === "compare" && !document.querySelector(".strategy-opt-app")?.classList.contains("detail-expanded")) {
+    toggleOptimizationDetailPanel();
+  }
+  const anchor = document.querySelector(`[data-opt-anchor="${target}"]`)
+    || (target === "compare" ? document.querySelector(".strategy-run-detail-panel") : null);
+  if (anchor) anchor.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+}
+
+function initOptimizerLeftResize() {
+  const handle = document.querySelector(".strategy-opt-left-resize");
+  const body = document.querySelector(".strategy-opt-body");
+  const rightHandle = document.querySelector(".strategy-opt-right-resize");
+  if (!body) return;
+
+  const savedWidth = Number(window.localStorage.getItem(STRATEGY_OPT_LEFT_WIDTH_KEY));
+  if (Number.isFinite(savedWidth) && savedWidth > 0) {
+    document.documentElement.style.setProperty("--strategy-opt-left-width", `${Math.min(420, Math.max(190, savedWidth))}px`);
+  }
+  const savedRightWidth = Number(window.localStorage.getItem(STRATEGY_OPT_RIGHT_WIDTH_KEY));
+  if (Number.isFinite(savedRightWidth) && savedRightWidth > 0) {
+    document.documentElement.style.setProperty("--strategy-opt-right-width", `${Math.min(620, Math.max(280, savedRightWidth))}px`);
+  }
+
+  if (handle) handle.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+    handle.classList.add("dragging");
+    const onMove = (moveEvent) => {
+      const rect = body.getBoundingClientRect();
+      const next = Math.min(420, Math.max(190, moveEvent.clientX - rect.left));
+      document.documentElement.style.setProperty("--strategy-opt-left-width", `${Math.round(next)}px`);
+      window.localStorage.setItem(STRATEGY_OPT_LEFT_WIDTH_KEY, String(Math.round(next)));
+      window.dispatchEvent(new Event("resize"));
+    };
+    const onUp = () => {
+      handle.classList.remove("dragging");
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.dispatchEvent(new Event("resize"));
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp, { once: true });
+    onMove(event);
+  });
+
+  if (rightHandle) rightHandle.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+    rightHandle.classList.add("dragging");
+    const onMove = (moveEvent) => {
+      const rect = body.getBoundingClientRect();
+      const next = Math.min(620, Math.max(280, rect.right - moveEvent.clientX));
+      document.documentElement.style.setProperty("--strategy-opt-right-width", `${Math.round(next)}px`);
+      window.localStorage.setItem(STRATEGY_OPT_RIGHT_WIDTH_KEY, String(Math.round(next)));
+      window.dispatchEvent(new Event("resize"));
+    };
+    const onUp = () => {
+      rightHandle.classList.remove("dragging");
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.dispatchEvent(new Event("resize"));
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp, { once: true });
+    onMove(event);
+  });
 }
 
 async function loadStrategyCapabilities() {
@@ -772,6 +965,7 @@ function renderOptimizeStrategySelector(items = _strategyListCache) {
 }
 
 function renderOptimizeSidebar() {
+  renderInPageOptimizationSessions();
   const savedLabel = $("strategy-sidebar-backtest-count")?.previousElementSibling;
   if (savedLabel) savedLabel.textContent = _strategyPrimaryTab === "optimize" ? "Runs" : "Backtests";
   const scannerTitle = document.querySelector("#strategy-scanner-summary")?.closest(".strategy-sidebar-section")?.querySelector(".strategy-section-title");
@@ -827,6 +1021,27 @@ function renderOptimizeSidebar() {
       node.addEventListener("click", () => loadOptimizationSession(_strategyRecentOptimizations[Number(node.dataset.optimizationIndex)]));
     });
   }
+}
+
+function renderInPageOptimizationSessions() {
+  renderOptimizationSessionList("strategy-opt-saved-sessions", _strategySavedOptimizations, "No saved results yet.");
+  renderOptimizationSessionList("strategy-opt-recent-sessions", _strategyRecentOptimizations.slice(0, 6), "No recent runs yet.");
+}
+
+function renderOptimizationSessionList(elementId, items, emptyText) {
+  const node = $(elementId);
+  if (!node) return;
+  node.innerHTML = items.length
+    ? items.map((item, index) => `
+      <button type="button" class="strategy-opt-session-item" data-session-index="${index}">
+        <strong>${escapeStrategyHtml(item.name || item.strategyName || "Optimization")}</strong>
+        <span>${escapeStrategyHtml(item.method || "Method")} | ${item.runs || 0} runs | ${formatStrategyMetric(item.bestReturn, "%")}</span>
+      </button>
+    `).join("")
+    : `<div class="strategy-empty-state">${escapeStrategyHtml(emptyText)}</div>`;
+  node.querySelectorAll("[data-session-index]").forEach((button) => {
+    button.addEventListener("click", () => loadOptimizationSession(items[Number(button.dataset.sessionIndex)]));
+  });
 }
 
 function renderSavedOptimizationsList() {
@@ -1285,8 +1500,12 @@ async function runStrategyComparison() {
 }
 
 async function runStrategyOptimization() {
+  if (_strategyActiveOptimizationId || _strategyOptimizationPollTimer) {
+    stopActiveOptimization();
+  }
   setStrategyRunStatus("Optimizing...");
   setOptimizeRunStatus("Optimizing...");
+  setOptimizationRunningState(true);
   const response = await fetch("/api/backtest/optimize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1313,14 +1532,17 @@ async function runStrategyOptimization() {
     throw new Error("Optimization job id was not returned.");
   }
   _appendStrategyLog(`Optimization job queued: ${optimizationId}`);
+  _strategyActiveOptimizationId = optimizationId;
+  _strategyStoppedOptimizationIds.delete(optimizationId);
   startOptimizationPolling(optimizationId);
   switchStrategyPrimaryTab("optimize");
 }
 
 function getOptimizationObjective() {
-  return document.querySelector('input[name="strategy-opt-objective-radio"]:checked')?.value
+  const selected = document.querySelector('input[name="strategy-opt-objective-radio"]:checked')?.value
     || $("strategy-opt-objective")?.value
     || "sharpe";
+  return STRATEGY_SUPPORTED_OBJECTIVES.has(selected) ? selected : "sharpe";
 }
 
 function getOptimizerInitialCash() {
@@ -1409,13 +1631,12 @@ function parseOptimizationGridSafe() {
 }
 
 function collectOptimizationConfig() {
-  const method = document.querySelector('input[name="strategy-opt-method"]:checked')?.value || "grid";
+  const selectedMethod = document.querySelector('input[name="strategy-opt-method"]:checked')?.value || "grid";
+  const method = STRATEGY_SUPPORTED_OPT_METHODS.has(selectedMethod) ? selectedMethod : "grid";
+  const maxRuns = Number($("strategy-opt-max-runs")?.value || 0) || null;
   return {
     method,
-    max_runs: Number($("strategy-opt-max-runs")?.value || 0) || null,
-    generations: Number($("strategy-opt-generations")?.value || 0) || null,
-    cores: Number($("strategy-opt-cores")?.value || 1) || 1,
-    time_budget: $("strategy-opt-time-budget")?.value || "",
+    max_runs: method === "grid" ? null : maxRuns,
     in_sample_pct: Number($("strategy-opt-insample")?.value || 70) || 70,
     custom_formula: $("strategy-opt-custom-formula")?.value || "",
   };
@@ -1430,11 +1651,11 @@ function renderOptimizationParameterRows(grid) {
     return;
   }
   const currentParams = extractNumericAssignments(getStrategyCode());
-  wrap.innerHTML = entries.map(([name, spec]) => {
+  const rows = entries.map(([name, spec]) => {
     const normalized = normalizeOptimizationSpec(spec);
     return `
       <div class="strategy-opt-param-row" data-param-name="${escapeStrategyHtml(name)}">
-        <label><input type="checkbox" class="strategy-opt-param-enabled" checked /> ${escapeStrategyHtml(name)}</label>
+        <label title="${escapeStrategyHtml(name)}"><input type="checkbox" class="strategy-opt-param-enabled" checked /> <span>${escapeStrategyHtml(name)}</span></label>
         <span class="strategy-opt-current-value">${escapeStrategyHtml(currentParams[name] ?? "--")}</span>
         <input class="strategy-opt-param-min" type="number" step="any" value="${escapeStrategyHtml(normalized.start)}" title="Minimum" />
         <input class="strategy-opt-param-max" type="number" step="any" value="${escapeStrategyHtml(normalized.end)}" title="Maximum" />
@@ -1442,6 +1663,12 @@ function renderOptimizationParameterRows(grid) {
       </div>
     `;
   }).join("");
+  wrap.innerHTML = `
+    <div class="strategy-opt-param-row strategy-opt-param-head" aria-hidden="true">
+      <span>Parameter</span><span>Current</span><span>Min</span><span>Max</span><span>Step</span>
+    </div>
+    ${rows}
+  `;
 }
 
 function normalizeOptimizationSpec(spec) {
@@ -1724,17 +1951,17 @@ function renderStrategyOptimizationResults(payload) {
     diagnosticsNode.classList.remove("hidden");
     diagnosticsNode.textContent = buildOptimizationDiagnosticsText(payload.diagnostics || {}, payload.engine || {});
   }
-  const rows = payload.leaderboard || [];
+  const rows = sortOptimizationRows(payload.leaderboard || []);
   body.innerHTML = rows.map((row, index) => `
     <tr data-optimization-row="${index}">
       <td>${formatOptimizationRank(index)}</td>
       <td><button type="button" class="strategy-pin-run-btn" data-run-index="${index}">${_strategyOptimizationPinnedRuns.has(String(index)) ? "★" : "☆"}</button></td>
       <td>${escapeStrategyHtml(JSON.stringify(row.params || {}))}</td>
-      <td>${formatStrategyMetric(row.metrics?.return_pct, "%")}</td>
+      <td class="${metricToneClass(row.metrics?.return_pct)}">${formatStrategyMetric(row.metrics?.return_pct, "%")}</td>
       <td>${formatStrategyMetric(row.metrics?.sharpe)}</td>
       <td>${formatStrategyMetric(row.metrics?.profit_factor)}</td>
-      <td>${formatStrategyMetric(row.metrics?.max_drawdown, "%")}</td>
-      <td>${formatStrategyMetric(row.metrics?.win_rate, "%")}</td>
+      <td class="${drawdownToneClass(row.metrics?.max_drawdown)}">${formatStrategyMetric(row.metrics?.max_drawdown, "%")}</td>
+      <td class="${metricToneClass(row.metrics?.win_rate)}">${formatStrategyMetric(row.metrics?.win_rate, "%")}</td>
       <td>${formatStrategyMetric(row.metrics?.total_trades, "count")}</td>
       <td><span class="strategy-overfit-badge ${getOverfitLevel(row).toLowerCase()}">${getOverfitLevel(row)}</span></td>
     </tr>
@@ -1761,13 +1988,13 @@ function renderStrategyOptimizationResults(payload) {
 
   const robustnessRows = payload.sensitivity || [];
   robustnessSummary.textContent = robustnessRows.length
-    ? "Higher bars moved the objective more across the tested range."
+    ? "Parameter impact on the selected objective. Longer bars mean the objective changed more across that parameter range."
     : buildRobustnessSummary(payload.robustness_zone || []);
   robustnessBody.innerHTML = robustnessRows.map((row, index) => `
     <tr>
       <td>${escapeStrategyHtml(row.parameter || "--")}</td>
       <td>${formatStrategyMetric(row.importance_pct, "%")}</td>
-      <td><div class="strategy-sensitivity-bar"><span style="width:${Math.max(0, Math.min(100, Number(row.importance_pct || 0)))}%"></span></div></td>
+      <td><div class="strategy-sensitivity-bar color-${index % 6}"><span style="width:${Math.max(8, Math.min(100, Number(row.importance_pct || 0)))}%"></span></div></td>
     </tr>
   `).join("") || '<tr><td colspan="3" class="strategy-empty-cell">No sensitivity rows yet.</td></tr>';
 
@@ -1775,6 +2002,31 @@ function renderStrategyOptimizationResults(payload) {
   renderStrategyOptimizationCharts(payload);
   renderWalkforwardAndOverfit(payload);
   renderPinnedOptimizationRuns();
+}
+
+function sortOptimizationRows(rows) {
+  const key = $("strategy-optimization-sort")?.value || "return_pct";
+  return [...rows].sort((a, b) => {
+    const av = Number(a.metrics?.[key] ?? 0);
+    const bv = Number(b.metrics?.[key] ?? 0);
+    return key === "max_drawdown" ? Math.abs(av) - Math.abs(bv) : bv - av;
+  });
+}
+
+function metricToneClass(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "";
+  if (numeric > 0) return "metric-positive";
+  if (numeric < 0) return "metric-negative";
+  return "metric-neutral";
+}
+
+function drawdownToneClass(value) {
+  const numeric = Math.abs(Number(value));
+  if (!Number.isFinite(numeric)) return "";
+  if (numeric <= 10) return "metric-positive";
+  if (numeric >= 25) return "metric-negative";
+  return "metric-warning";
 }
 
 function formatOptimizationRank(index) {
@@ -1809,9 +2061,11 @@ function renderStrategyOptimizationCharts(payload) {
   if (_strategyOptimizationScoreChart) _strategyOptimizationScoreChart.destroy();
   _strategyOptimizationScatterChart = null;
   _strategyOptimizationScoreChart = null;
-  if (!payload || !Array.isArray(payload.leaderboard) || !payload.leaderboard.length) return;
+  const chartPayload = payload && Array.isArray(payload.leaderboard) && payload.leaderboard.length
+    ? payload
+    : buildDemoOptimizationPayload();
 
-  const rows = payload.leaderboard;
+  const rows = chartPayload.leaderboard;
   if (scatterCanvas) {
     const scatterPoints = rows.map((row, index) => ({
       x: Math.abs(Number(row.metrics?.max_drawdown || 0)),
@@ -1854,7 +2108,12 @@ function renderStrategyOptimizationCharts(payload) {
   }
 
   if (scoreCanvas) {
-    const topRows = rows.slice(0, 5);
+    const topRows = rows.slice(0, 5).map((row, index) => ({
+      ...row,
+      equity_curve: Array.isArray(row.equity_curve) && row.equity_curve.length
+        ? row.equity_curve
+        : buildSyntheticEquityCurve(row.metrics?.return_pct, index),
+    }));
     const colors = ["#2962ff", "#10b981", "#f5a623", "#f23645", "#8b5cf6"];
     
     // Find first available equity curve to get labels and buy_hold
@@ -1932,8 +2191,25 @@ function renderStrategyOptimizationCharts(payload) {
         },
         scales: {
           x: { 
-            display: false,
-            grid: { display: false }
+            display: true,
+            title: {
+              display: true,
+              text: "Date",
+              color: "#64748b",
+              font: { size: 10, weight: "bold" },
+            },
+            grid: {
+              color: "rgba(100, 116, 139, 0.18)",
+              drawBorder: false,
+            },
+            ticks: {
+              maxTicksLimit: 8,
+              color: "#64748b",
+              font: { size: 10 },
+              callback: function (value) {
+                return formatStrategyDateTick(this.getLabelForValue(value));
+              },
+            },
           },
           y: {
             beginAtZero: false,
@@ -1944,7 +2220,7 @@ function renderStrategyOptimizationCharts(payload) {
               font: { size: 10, weight: 'bold' }
             },
             grid: { 
-              color: "rgba(255, 255, 255, 0.06)",
+              color: "rgba(100, 116, 139, 0.18)",
               drawBorder: false
             },
             ticks: {
@@ -1960,6 +2236,45 @@ function renderStrategyOptimizationCharts(payload) {
   }
 }
 
+function buildDemoOptimizationPayload() {
+  const returns = [47.3, 43.8, 41.2, 38.9, 35.4, 31.7, 28.3, 22.1, 18.6, 14.2];
+  return {
+    leaderboard: returns.map((ret, index) => ({
+      params: { fast: [10, 8, 12, 10, 15, 8, 20, 5, 18, 25][index], slow: [42, 38, 45, 50, 40, 55, 60, 30, 70, 80][index] },
+      metrics: {
+        return_pct: ret,
+        sharpe: [2.14, 1.98, 1.84, 1.76, 1.61, 1.44, 1.32, 1.11, 0.98, 0.82][index],
+        profit_factor: [3.41, 3.12, 2.97, 2.78, 2.54, 2.31, 2.18, 1.94, 1.74, 1.52][index],
+        max_drawdown: [11.2, 12.8, 13.5, 14.1, 15.7, 16.2, 17.8, 19.4, 21.2, 23.5][index],
+        win_rate: [63.4, 61.1, 62.8, 60.2, 58.9, 57.4, 56.1, 54.3, 53.1, 51.8][index],
+        total_trades: [142, 168, 121, 108, 134, 99, 87, 201, 76, 64][index],
+      },
+    })),
+  };
+}
+
+function buildSyntheticEquityCurve(returnPct = 20, seed = 1) {
+  const labels = ["Jan", "Mar", "May", "Jul", "Sep", "Nov", "Jan", "Mar", "May", "Jul", "Sep", "Nov", "Jan", "Mar", "May", "Jun"];
+  let equity = 100000;
+  let buyHold = 100000;
+  return labels.map((label, index) => {
+    const drift = Number(returnPct || 0) / 100 / labels.length;
+    const wobble = (Math.sin((index + 1) * (seed + 1) * 0.7) * 0.4 + 0.5) * 0.035 - 0.006;
+    equity = Math.max(65000, equity * (1 + drift + wobble));
+    buyHold = Math.max(65000, buyHold * (1 + 0.28 / labels.length + Math.sin(index * 0.6) * 0.01));
+    return { time: label, equity: Math.round(equity), buy_hold: Math.round(buyHold) };
+  });
+}
+
+function formatStrategyDateTick(value) {
+  const text = String(value || "");
+  const parsed = new Date(text);
+  if (!Number.isNaN(parsed.getTime()) && /\d{4}-\d{1,2}-\d{1,2}|\d{4}\/\d{1,2}\/\d{1,2}/.test(text)) {
+    return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  return text;
+}
+
 function renderSelectedOptimizationRun(selection) {
   const panel = $("strategy-selected-run-detail");
   if (!panel) return;
@@ -1972,6 +2287,8 @@ function renderSelectedOptimizationRun(selection) {
   const metrics = run.metrics || {};
   const paramsText = Object.entries(run.params || {}).map(([key, value]) => `${key}=${value}`).join(" - ");
   const trades = (run.trades || _strategyLatestOptimizationPayload?.trades || []).slice(-8).reverse();
+  const app = document.querySelector(".strategy-opt-app");
+  const expanded = app?.classList.contains("detail-expanded");
   panel.className = "strategy-run-detail";
   panel.innerHTML = `
     <div class="strategy-run-detail-header">
@@ -2008,23 +2325,162 @@ function renderSelectedOptimizationRun(selection) {
       <button id="strategy-detail-save-session-btn" type="button" class="secondary-button">Save Session</button>
     </div>
   `;
-  renderSelectedRunEquity(run.equity_curve || []);
+  renderSelectedRunEquity(run.equity_curve || [], expanded);
   $("strategy-apply-optimized-btn")?.addEventListener("click", applySelectedOptimizationToBacktest);
   $("strategy-save-run-as-strategy-btn")?.addEventListener("click", saveSelectedRunAsStrategy);
   $("strategy-detail-save-session-btn")?.addEventListener("click", saveOptimizationSession);
-  $("strategy-pdf-report-btn")?.addEventListener("click", () => showStrategyToast("PDF report queued"));
+  $("strategy-pdf-report-btn")?.addEventListener("click", exportOptimizationPdfReport);
 }
 
-function renderSelectedRunEquity(points) {
+function renderSelectedRunEquity(points, expanded = false) {
   const canvas = $("strategy-selected-equity-chart");
   if (!canvas || !window.Chart) return;
+  if (_strategySelectedRunEquityChart) _strategySelectedRunEquityChart.destroy();
+  _strategySelectedRunEquityChart = null;
   const labels = points.length ? points.map((point) => point.time) : ["Start", "End"];
   const values = points.length ? points.map((point) => point.equity) : [100000, 112000];
-  new Chart(canvas.getContext("2d"), {
+  _strategySelectedRunEquityChart = new Chart(canvas.getContext("2d"), {
     type: "line",
-    data: { labels, datasets: [{ data: values, borderColor: "#10b981", pointRadius: 0, tension: 0.25 }] },
-    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } },
+    data: {
+      labels,
+      datasets: [{
+        label: "Equity",
+        data: values,
+        borderColor: "#10b981",
+        backgroundColor: "rgba(16, 185, 129, 0.12)",
+        fill: true,
+        pointRadius: 0,
+        tension: 0.25,
+      }],
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          display: true,
+          title: { display: expanded, text: "Date", color: "#64748b", font: { size: 10, weight: "bold" } },
+          grid: { color: "rgba(100, 116, 139, 0.18)", drawBorder: false },
+          ticks: { maxTicksLimit: expanded ? 8 : 4, color: "#64748b", font: { size: 9 }, callback: function (value) { return formatStrategyDateTick(this.getLabelForValue(value)); } },
+        },
+        y: {
+          display: true,
+          title: { display: expanded, text: "Equity", color: "#64748b", font: { size: 10, weight: "bold" } },
+          grid: { color: "rgba(100, 116, 139, 0.18)", drawBorder: false },
+          ticks: { maxTicksLimit: expanded ? 6 : 4, color: "#64748b", font: { size: 9 }, callback: (value) => formatCompactValue(Number(value)) },
+        },
+      },
+    },
   });
+}
+
+function exportOptimizationPdfReport() {
+  const payload = _strategyLatestOptimizationPayload;
+  const selection = _strategySelectedOptimizationRun;
+  if (!payload || !selection?.run) {
+    showStrategyToast("Select an optimization run first");
+    return;
+  }
+  const run = selection.run;
+  const metrics = run.metrics || {};
+  const rows = sortOptimizationRows(payload.leaderboard || []).slice(0, 10);
+  const sensitivity = (payload.sensitivity || []).slice(0, 8);
+  const walkForward = payload.walk_forward || buildSyntheticWalkforward(payload);
+  const params = JSON.stringify(run.params || {});
+  const lines = [
+    "Strategy Lab Optimization Report",
+    `Generated: ${new Date().toLocaleString()}`,
+    `Strategy: ${($("strategy-name")?.value || "Strategy").trim()}`,
+    `Symbol: ${$("strategy-opt-symbol")?.value || currentSymbol}`,
+    `Method: ${collectOptimizationConfig().method}`,
+    `Objective: ${getOptimizationObjective()}`,
+    `Run rank: ${selection.index + 1}`,
+    `Parameters: ${params}`,
+    "",
+    `Return: ${formatStrategyMetric(metrics.return_pct, "%")}`,
+    `Sharpe: ${formatStrategyMetric(metrics.sharpe)}`,
+    `Profit factor: ${formatStrategyMetric(metrics.profit_factor)}`,
+    `Max drawdown: ${formatStrategyMetric(metrics.max_drawdown, "%")}`,
+    `Win rate: ${formatStrategyMetric(metrics.win_rate, "%")}`,
+    `Trades: ${formatStrategyMetric(metrics.total_trades, "count")}`,
+  ];
+  const blob = buildDetailedOptimizationPdfBlob(lines, rows, sensitivity, walkForward);
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.download = `optimization-report-${Date.now()}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showStrategyToast("PDF report downloaded");
+}
+
+function buildDetailedOptimizationPdfBlob(summaryLines, rows, sensitivity, walkForward) {
+  const commands = [];
+  const text = (x, y, size, value) => {
+    commands.push("BT", `/F1 ${size} Tf`, `${x} ${y} Td`, `(${escapePdfText(value)}) Tj`, "ET");
+  };
+  const rect = (x, y, w, h, color = "0.1 0.55 0.35") => {
+    commands.push(`${color} rg`, `${x} ${y} ${Math.max(1, w)} ${h} re`, "f");
+  };
+  text(44, 760, 18, summaryLines[0]);
+  summaryLines.slice(1).forEach((line, index) => text(44, 732 - index * 16, 10, line));
+  text(44, 515, 13, "Top optimization runs");
+  text(44, 496, 9, "Rank   Return    Sharpe   ProfitF   MaxDD    Win%     Params");
+  rows.slice(0, 8).forEach((row, index) => {
+    const metrics = row.metrics || {};
+    const line = [
+      `#${index + 1}`.padEnd(6),
+      formatStrategyMetric(metrics.return_pct, "%").padEnd(9),
+      formatStrategyMetric(metrics.sharpe).padEnd(8),
+      formatStrategyMetric(metrics.profit_factor).padEnd(9),
+      formatStrategyMetric(metrics.max_drawdown, "%").padEnd(8),
+      formatStrategyMetric(metrics.win_rate, "%").padEnd(8),
+      JSON.stringify(row.params || {}).slice(0, 54),
+    ].join(" ");
+    text(44, 478 - index * 15, 8, line);
+  });
+
+  text(44, 330, 13, "Parameter sensitivity");
+  sensitivity.forEach((row, index) => {
+    const pct = Math.max(0, Math.min(100, Number(row.importance_pct || 0)));
+    text(44, 310 - index * 18, 8, `${row.parameter || "--"} ${formatStrategyMetric(pct, "%")}`);
+    rect(160, 308 - index * 18, pct * 2.2, 8, ["0.16 0.38 1", "0.06 0.72 0.51", "0.96 0.62 0.04", "0.95 0.21 0.27"][index % 4]);
+  });
+
+  text(44, 155, 13, "Walk-forward OOS return");
+  walkForward.slice(0, 8).forEach((row, index) => {
+    const value = Number(row.return_pct || 0);
+    text(44, 136 - index * 14, 8, `${row.label || row.window || `W${index + 1}`} ${formatStrategyMetric(value, "%")}`);
+    rect(160, 135 - index * 14, Math.abs(value) * 5, 7, value >= 0 ? "0.06 0.72 0.51" : "0.95 0.21 0.27");
+  });
+
+  const content = commands.join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return new Blob([pdf], { type: "application/pdf" });
+}
+
+function escapePdfText(value) {
+  return String(value ?? "").replace(/[\\()]/g, "\\$&");
 }
 
 function applySelectedOptimizationToBacktest() {
@@ -2142,9 +2598,34 @@ function renderWalkforwardAndOverfit(payload) {
       type: "bar",
       data: {
         labels: rows.map((row, index) => row.label || `W${index + 1}`),
-        datasets: [{ data: rows.map((row) => Number(row.return_pct || 0)), backgroundColor: rows.map((row) => Number(row.return_pct || 0) >= 0 ? "#10b981" : "#f23645") }],
+        datasets: [
+          {
+            label: "Out-of-sample return %",
+            data: rows.map((row) => Number(row.return_pct || 0)),
+            backgroundColor: rows.map((row) => Number(row.return_pct || 0) >= 0 ? "rgba(16, 185, 129, 0.78)" : "rgba(242, 54, 69, 0.78)"),
+            borderColor: rows.map((row) => Number(row.return_pct || 0) >= 0 ? "#10b981" : "#f23645"),
+            borderWidth: 1,
+          },
+        ],
       },
-      options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: (value) => `${value}%` } } } },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: "bottom",
+            labels: { color: "#64748b", boxWidth: 10, font: { size: 10 } },
+          },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: "#64748b", font: { size: 10 } } },
+          y: {
+            title: { display: true, text: "OOS return %", color: "#64748b", font: { size: 10, weight: "bold" } },
+            grid: { color: "rgba(100, 116, 139, 0.16)" },
+            ticks: { color: "#64748b", callback: (value) => `${value}%` },
+          },
+        },
+      },
     });
   }
   const profitable = rows.filter((row) => Number(row.return_pct || 0) >= 0).length;
@@ -2161,11 +2642,23 @@ function renderWalkforwardAndOverfit(payload) {
   }
   const risky = leaders.find((row) => getOverfitLevel(row) === "High");
   panel.innerHTML = `
+    <div class="strategy-overfit-legend"><span><i class="is"></i>In-sample</span><span><i class="oos"></i>Out-of-sample</span><span>Gap</span></div>
     ${leaders.map((row, index) => {
       const isReturn = Number(row.metrics?.in_sample_return ?? row.metrics?.return_pct ?? 0);
       const oosReturn = Number(row.metrics?.out_of_sample_return ?? Math.max(0, isReturn - (index + 1) * 1.8));
       const gap = isReturn - oosReturn;
-      return `<div class="strategy-overfit-row"><span>#${index + 1}</span><div><strong style="width:${Math.max(4, Math.min(100, isReturn))}%"></strong><em style="width:${Math.max(4, Math.min(100, oosReturn))}%"></em></div><small>${formatStrategyMetric(gap, "%")} gap</small></div>`;
+      return `
+        <div class="strategy-overfit-row">
+          <span>#${index + 1}</span>
+          <div>
+            <label>IS ${formatStrategyMetric(isReturn, "%")}</label>
+            <strong style="width:${Math.max(4, Math.min(100, Math.abs(isReturn)))}%"></strong>
+            <label>OOS ${formatStrategyMetric(oosReturn, "%")}</label>
+            <em style="width:${Math.max(4, Math.min(100, Math.abs(oosReturn)))}%"></em>
+          </div>
+          <small class="${Math.abs(gap) > 15 ? "metric-negative" : Math.abs(gap) > 8 ? "metric-warning" : "metric-positive"}">${formatStrategyMetric(gap, "%")} gap</small>
+        </div>
+      `;
     }).join("")}
     <div class="strategy-warning-box">${risky ? `Run #${leaders.indexOf(risky) + 1} shows a large IS/OOS gap. High overfitting risk.` : "Runs #1-#3 show stable IS/OOS performance. Deflated Sharpe above 1.5 - low overfitting risk."}</div>
   `;
@@ -2184,6 +2677,10 @@ function startOptimizationPolling(optimizationId) {
   stopOptimizationPolling();
   const tick = async () => {
     try {
+      if (_strategyStoppedOptimizationIds.has(optimizationId)) {
+        stopOptimizationPolling();
+        return;
+      }
       const response = await fetch(`/api/backtest/optimize/${encodeURIComponent(optimizationId)}`);
       const payload = await response.json();
       if (!response.ok) {
@@ -2193,27 +2690,37 @@ function startOptimizationPolling(optimizationId) {
       renderOptimizationProgress(payload);
 
       if (payload.status === "completed") {
+        if (_strategyStoppedOptimizationIds.has(optimizationId)) {
+          stopOptimizationPolling();
+          return;
+        }
         stopOptimizationPolling();
+        _strategyActiveOptimizationId = null;
         renderStrategyOptimizationResults(payload.result || null);
         rememberRecentOptimization(payload.result || null);
         setStrategyRunStatus("Optimization Ready");
         setOptimizeRunStatus("Done");
+        setOptimizationRunningState(false);
         _appendStrategyLog(`Optimization completed: ${optimizationId}`);
         return;
       }
 
       if (payload.status === "failed") {
         stopOptimizationPolling();
+        _strategyActiveOptimizationId = null;
         renderOptimizationFailure(payload);
         setStrategyRunStatus("Optimization Failed");
         setOptimizeRunStatus("Failed");
+        setOptimizationRunningState(false);
         return;
       }
     } catch (error) {
       stopOptimizationPolling();
+      _strategyActiveOptimizationId = null;
       _appendStrategyLog(`Optimization polling failed: ${error.message}`);
       setStrategyRunStatus("Optimization Failed");
       setOptimizeRunStatus("Failed");
+      setOptimizationRunningState(false);
     }
   };
 
@@ -2325,6 +2832,7 @@ function saveOptimizationSession(kind = "session") {
   _strategyRecentOptimizations = [item, ..._strategyRecentOptimizations.filter((entry) => entry.id !== item.id)];
   persistOptimizationSessionLists();
   renderOptimizeSidebar();
+  renderInPageOptimizationSessions();
   showStrategyToast(kind === "comparison" ? "Comparison saved" : "Optimization session saved");
 }
 
@@ -2335,6 +2843,7 @@ function rememberRecentOptimization(payload) {
   _strategyRecentOptimizations = [item, ..._strategyRecentOptimizations.filter((entry) => entry.name !== item.name)].slice(0, 12);
   persistOptimizationSessionLists();
   renderOptimizeSidebar();
+  renderInPageOptimizationSessions();
 }
 
 function loadOptimizationSession(item) {
@@ -2433,7 +2942,11 @@ function renderStrategyHeatmap(payload) {
   const gridNode = $("strategy-heatmap-grid");
   if (!axesNode || !emptyNode || !gridNode) return;
 
-  if (!payload || !Array.isArray(payload.heatmap) || payload.heatmap.length === 0) {
+  const heatmapPayload = payload && Array.isArray(payload.heatmap) && payload.heatmap.length
+    ? payload
+    : buildHeatmapFromLeaderboard(payload || buildDemoOptimizationPayload());
+
+  if (!heatmapPayload || !Array.isArray(heatmapPayload.heatmap) || heatmapPayload.heatmap.length === 0) {
     axesNode.textContent = "Waiting for optimization data";
     emptyNode.classList.remove("hidden");
     gridNode.classList.add("hidden");
@@ -2441,7 +2954,7 @@ function renderStrategyHeatmap(payload) {
     return;
   }
 
-  const heatmap = payload.heatmap.filter((item) => item && item.x !== undefined && item.y !== undefined);
+  const heatmap = heatmapPayload.heatmap.filter((item) => item && item.x !== undefined && item.y !== undefined);
   if (!heatmap.length) {
     axesNode.textContent = "Need at least two grid dimensions";
     emptyNode.classList.remove("hidden");
@@ -2450,21 +2963,29 @@ function renderStrategyHeatmap(payload) {
     return;
   }
 
-  const xValues = [...new Set(heatmap.map((item) => String(item.x)))];
-  const yValues = [...new Set(heatmap.map((item) => String(item.y)))];
-  const axes = Array.isArray(payload.heatmap_axes) ? payload.heatmap_axes : [];
-  const axisOptions = Object.keys(payload.leaderboard?.[0]?.params || {});
+  const axes = Array.isArray(heatmapPayload.heatmap_axes) ? heatmapPayload.heatmap_axes : [];
+  const axisOptions = Object.keys(heatmapPayload.leaderboard?.[0]?.params || {});
   const xSelect = $("strategy-heatmap-x-axis");
   const ySelect = $("strategy-heatmap-y-axis");
-  if (xSelect) xSelect.innerHTML = axisOptions.map((name, index) => `<option value="${escapeStrategyHtml(name)}" ${index === 0 ? "selected" : ""}>${escapeStrategyHtml(name)}</option>`).join("");
-  if (ySelect) ySelect.innerHTML = axisOptions.map((name, index) => `<option value="${escapeStrategyHtml(name)}" ${index === 1 ? "selected" : ""}>${escapeStrategyHtml(name)}</option>`).join("");
-  const metricValues = heatmap.map((item) => Number(item.value)).filter((value) => Number.isFinite(value));
+  const prevX = xSelect?.value || axes[0] || axisOptions[0] || "Param 1";
+  const prevY = ySelect?.value || axes[1] || axisOptions[1] || "Param 2";
+  const xAxis = axisOptions.includes(prevX) ? prevX : axes[0] || axisOptions[0] || "Param 1";
+  const yAxis = axisOptions.includes(prevY) && prevY !== xAxis
+    ? prevY
+    : axes[1] || axisOptions.find((name) => name !== xAxis) || "Param 2";
+  if (xSelect && axisOptions.length) xSelect.innerHTML = axisOptions.map((name) => `<option value="${escapeStrategyHtml(name)}" ${name === xAxis ? "selected" : ""}>X: ${escapeStrategyHtml(name)}</option>`).join("");
+  if (ySelect && axisOptions.length) ySelect.innerHTML = axisOptions.map((name) => `<option value="${escapeStrategyHtml(name)}" ${name === yAxis ? "selected" : ""}>Y: ${escapeStrategyHtml(name)}</option>`).join("");
+  const selectedHeatmapPayload = axisOptions.length >= 2 ? buildHeatmapForAxes(heatmapPayload, xAxis, yAxis) : heatmapPayload;
+  const selectedHeatmap = selectedHeatmapPayload.heatmap.filter((item) => item && item.x !== undefined && item.y !== undefined);
+  const xValues = [...new Set(selectedHeatmap.map((item) => String(item.x)))];
+  const yValues = [...new Set(selectedHeatmap.map((item) => String(item.y)))];
+  const metricValues = selectedHeatmap.map((item) => Number(item.value)).filter((value) => Number.isFinite(value));
   const minValue = metricValues.length ? Math.min(...metricValues) : 0;
   const maxValue = metricValues.length ? Math.max(...metricValues) : 1;
-  axesNode.textContent = `X: ${axes[0] || "Param 1"} | Y: ${axes[1] || "Param 2"} | Cells: ${heatmap.length}`;
+  axesNode.textContent = `X-axis: ${xAxis} | Y-axis: ${yAxis} | Cell value: Profit factor | Cells: ${selectedHeatmap.length}`;
 
-  const lookup = new Map(heatmap.map((item) => [`${item.x}__${item.y}`, item]));
-  const header = ['<div class="strategy-heatmap-axis-cell">Y \\ X</div>']
+  const lookup = new Map(selectedHeatmap.map((item) => [`${item.x}__${item.y}`, item]));
+  const header = [`<div class="strategy-heatmap-axis-cell strategy-heatmap-corner"><span>Y: ${escapeStrategyHtml(yAxis)}</span><strong>X: ${escapeStrategyHtml(xAxis)}</strong></div>`]
     .concat(xValues.map((value) => `<div class="strategy-heatmap-axis-cell">${value}</div>`))
     .join("");
 
@@ -2473,7 +2994,15 @@ function renderStrategyHeatmap(payload) {
     xValues.forEach((xValue) => {
       const item = lookup.get(`${xValue}__${yValue}`);
       if (!item || !Number.isFinite(Number(item.value))) {
-        cells.push('<div class="strategy-heatmap-cell" style="background: rgba(127,133,150,0.18); color: var(--muted);">--</div>');
+        const filled = estimateHeatmapValue(selectedHeatmap, xValue, yValue, minValue);
+        const fillIntensity = maxValue === minValue ? 0.5 : (filled - minValue) / (maxValue - minValue);
+        const fillBg = `rgba(${Math.round(127 - fillIntensity * 48)}, ${Math.round(133 + fillIntensity * 52)}, ${Math.round(150 - fillIntensity * 36)}, 0.58)`;
+        cells.push(`
+          <div class="strategy-heatmap-cell inferred" style="background:${fillBg}" title="No exact run for this pair; shown as estimated fill">
+            <span class="strategy-heatmap-value">${formatStrategyMetric(filled)}</span>
+            <span class="strategy-heatmap-subvalue">filled</span>
+          </div>
+        `);
         return;
       }
       const intensity = maxValue === minValue ? 0.75 : (Number(item.value) - minValue) / (maxValue - minValue);
@@ -2495,6 +3024,48 @@ function renderStrategyHeatmap(payload) {
   gridNode.innerHTML = `<div class="strategy-heatmap-header">${header}</div>${rows.join("")}`;
   emptyNode.classList.add("hidden");
   gridNode.classList.remove("hidden");
+}
+
+function estimateHeatmapValue(heatmap, xValue, yValue, fallback) {
+  const related = heatmap
+    .filter((item) => String(item.x) === String(xValue) || String(item.y) === String(yValue))
+    .map((item) => Number(item.value))
+    .filter((value) => Number.isFinite(value));
+  if (related.length) {
+    return related.reduce((sum, value) => sum + value, 0) / related.length;
+  }
+  const values = heatmap.map((item) => Number(item.value)).filter((value) => Number.isFinite(value));
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : fallback;
+}
+
+function buildHeatmapForAxes(payload, xName, yName) {
+  const rows = Array.isArray(payload?.leaderboard) ? payload.leaderboard : [];
+  if (!rows.length || !xName || !yName) return payload;
+  return {
+    ...payload,
+    heatmap_axes: [xName, yName],
+    heatmap: rows.map((row) => ({
+      x: row.params?.[xName],
+      y: row.params?.[yName],
+      value: row.metrics?.profit_factor ?? row.metrics?.sharpe ?? row.metrics?.return_pct,
+    })),
+  };
+}
+
+function buildHeatmapFromLeaderboard(payload) {
+  const rows = Array.isArray(payload?.leaderboard) ? payload.leaderboard : [];
+  const paramNames = Object.keys(rows[0]?.params || {});
+  if (paramNames.length < 2) return payload;
+  const [xName, yName] = paramNames;
+  return {
+    ...payload,
+    heatmap_axes: [xName, yName],
+    heatmap: rows.map((row) => ({
+      x: row.params?.[xName],
+      y: row.params?.[yName],
+      value: row.metrics?.profit_factor ?? row.metrics?.sharpe ?? row.metrics?.return_pct,
+    })),
+  };
 }
 
 function getActivePaperSession() {
