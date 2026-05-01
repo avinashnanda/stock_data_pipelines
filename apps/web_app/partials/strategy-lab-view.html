@@ -564,33 +564,65 @@
               <section class="strategy-optimization-card" data-opt-anchor="results">
                 <div class="strategy-optimization-card-header">
                   <h4>Ranked results</h4>
-                  <div class="strategy-results-sort-row"><span>Sort:</span><select id="strategy-optimization-sort"><option value="return_pct">Return</option><option value="sharpe">Sharpe</option><option value="profit_factor">Profit factor</option><option value="max_drawdown">Drawdown</option><option value="win_rate">Win rate</option></select></div>
+                  <div class="strategy-results-sort-row">
+                    <span>Sort:</span>
+                    <select id="strategy-optimization-sort">
+                      <option value="return_pct">Return</option>
+                      <option value="sharpe">Sharpe</option>
+                      <option value="profit_factor">Profit factor</option>
+                      <option value="max_drawdown">Drawdown</option>
+                      <option value="win_rate">Win rate</option>
+                    </select>
+                    <button id="strategy-export-optimization-csv-inline-btn" type="button" class="strategy-opt-btn">Export CSV</button>
+                  </div>
                 </div>
                 <div class="strategy-table-shell">
                   <table class="strategy-results-table strategy-ranked-table">
-                    <thead><tr><th>#</th><th>Pin</th><th>Params</th><th>Return</th><th>Sharpe</th><th>Prof.F</th><th>Max DD</th><th>Win %</th><th>Trades</th><th>Ovfit</th></tr></thead>
+                    <colgroup>
+                      <col style="width:32px"><col style="width:32px"><col style="width:110px">
+                      <col style="width:68px"><col style="width:62px"><col style="width:62px">
+                      <col style="width:70px"><col style="width:62px"><col style="width:58px"><col style="width:72px">
+                    </colgroup>
+                    <thead id="strategy-ranked-thead"><tr>
+                      <th style="text-align:center">#</th>
+                      <th style="text-align:center">Pin</th>
+                      <th>Params</th>
+                      <th data-sort-col="return_pct">Return</th>
+                      <th data-sort-col="sharpe">Sharpe</th>
+                      <th data-sort-col="profit_factor">Prof.F</th>
+                      <th data-sort-col="max_drawdown">Max DD</th>
+                      <th data-sort-col="win_rate">Win %</th>
+                      <th>Trades</th>
+                      <th>Ovfit</th>
+                    </tr></thead>
                     <tbody id="strategy-optimization-body"><tr><td colspan="10" class="strategy-empty-cell">No optimization run yet.</td></tr></tbody>
                   </table>
                 </div>
               </section>
 
               <div class="strategy-opt-chart-row" data-opt-anchor="walkforward">
-                <section class="strategy-optimization-card">
-                  <div class="strategy-optimization-card-header"><h4>Parameter sensitivity</h4><span id="strategy-sensitivity-title" class="strategy-optimization-meta">Impact on Sharpe ratio</span></div>
-                  <div id="strategy-robustness-summary" class="strategy-empty-state">Robustness analysis will appear here.</div>
-                  <div class="strategy-table-shell">
-                    <table class="strategy-results-table"><thead><tr><th>Parameter</th><th>Impact</th><th>Sensitivity</th></tr></thead><tbody id="strategy-robustness-body"><tr><td colspan="3" class="strategy-empty-cell">No sensitivity rows yet.</td></tr></tbody></table>
+                <section class="strategy-optimization-card strategy-sens-card">
+                  <div class="strategy-optimization-card-header">
+                    <h4>Parameter sensitivity</h4>
+                    <span id="strategy-sensitivity-title" class="strategy-optimization-meta">Impact on Sharpe ratio</span>
+                  </div>
+                  <div id="strategy-sensitivity-container" class="strategy-sens-container">
+                    <div class="strategy-empty-state">Run optimization to see parameter impact.</div>
                   </div>
                 </section>
-                <section class="strategy-optimization-card">
+                <section class="strategy-optimization-card strategy-wf-card">
                   <div class="strategy-optimization-card-header"><h4>Walk-forward windows</h4><span class="strategy-optimization-meta">Out-of-sample return per window</span></div>
-                  <div class="strategy-chart-canvas-wrap"><canvas id="strategy-walkforward-chart"></canvas></div>
-                  <div id="strategy-walkforward-summary" class="strategy-empty-state">Consistency %, average OOS return, and stability appear after a run.</div>
+                  <div id="strategy-wf-container" class="strategy-wf-container">
+                    <div class="strategy-empty-state">Consistency %, average OOS return, and stability appear after a run.</div>
+                  </div>
                 </section>
               </div>
 
               <section class="strategy-optimization-card" data-opt-anchor="walkforward">
-                <div class="strategy-optimization-card-header"><h4>Overfitting detection · top runs</h4><span class="strategy-optimization-meta">In-sample vs out-of-sample gap</span></div>
+                <div class="strategy-optimization-card-header">
+                  <h4>Overfitting detection</h4>
+                  <span class="strategy-optimization-meta">Top runs — in-sample vs out-of-sample return gap</span>
+                </div>
                 <div id="strategy-overfit-panel" class="strategy-overfit-panel"></div>
               </section>
             </main>

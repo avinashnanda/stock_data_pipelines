@@ -2442,3 +2442,570 @@
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
   }
 }
+
+/* ── Best Run summary card ── */
+.strategy-opt-best-run-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  background: var(--opt-bg2);
+  border: 1px solid var(--opt-border);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+
+.strategy-opt-best-run-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--opt-purple, #7f77dd);
+  flex: 0 0 auto;
+}
+
+.strategy-opt-best-run-params {
+  flex: 1 1 auto;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  color: var(--opt-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strategy-opt-best-run-metrics {
+  display: flex;
+  gap: 16px;
+  flex: 0 0 auto;
+}
+
+.strategy-opt-best-run-metrics span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.strategy-opt-best-run-metrics em {
+  font-style: normal;
+  font-size: 9px;
+  color: var(--opt-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.strategy-opt-best-run-metrics strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.strategy-opt-best-run-metrics strong.metric-positive { color: #10b981; }
+.strategy-opt-best-run-metrics strong.metric-negative { color: #f23645; }
+
+/* ── Walk-forward legend pills ── */
+.strategy-wf-legend {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 8px 13px;
+}
+
+.strategy-wf-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.strategy-wf-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.strategy-wf-pill em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--opt-faint);
+}
+
+.strategy-wf-pill strong {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.strategy-wf-pill strong.metric-positive { color: #10b981; }
+.strategy-wf-pill strong.metric-negative { color: #f23645; }
+.strategy-wf-pill strong.metric-warning  { color: #f59e0b; }
+
+/* ── Robustness summary subtitle ── */
+.strategy-robustness-summary {
+  font-size: 10px;
+  color: var(--opt-faint);
+  padding: 8px 13px;
+  border-bottom: 1px solid var(--opt-border);
+}
+
+/* ═══════════════════════════════════════════════
+   Component 1 — Parameter Sensitivity
+   ═══════════════════════════════════════════════ */
+.strategy-sens-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 260px;
+}
+
+.strategy-sens-container {
+  padding: 10px 13px;
+  overflow: auto;
+}
+
+.strategy-sens-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.strategy-sens-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.strategy-sens-name {
+  flex: 0 0 110px;
+  width: 110px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10px;
+  color: var(--opt-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strategy-sens-track {
+  flex: 1 1 auto;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--opt-border);
+  overflow: hidden;
+  position: relative;
+  min-width: 40px;
+}
+
+.strategy-sens-fill {
+  height: 100%;
+  border-radius: inherit;
+  /* transition applied inline per-element for animation on mount */
+}
+
+.strategy-sens-pct {
+  flex: 0 0 36px;
+  width: 36px;
+  text-align: right;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════
+   Component 2 — Walk-Forward CSS Bar Chart
+   ═══════════════════════════════════════════════ */
+.strategy-wf-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.strategy-wf-container {
+  padding: 10px 13px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.strategy-wf-chart-area {
+  position: relative;
+  height: 80px;
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+}
+
+.strategy-wf-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  flex: 1 1 auto;
+  height: 80px;
+  padding-bottom: 1px; /* sit above baseline */
+  position: relative;
+  z-index: 1;
+}
+
+.strategy-wf-bar {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+  cursor: pointer;
+  position: relative;
+}
+
+.strategy-wf-bar-pos { background: var(--opt-green); }
+.strategy-wf-bar-neg { background: var(--opt-red); }
+
+.strategy-wf-bar:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--opt-bg3);
+  border: 1px solid var(--opt-border-strong);
+  color: var(--opt-text);
+  font-size: 9px;
+  font-family: Consolas, "Courier New", monospace;
+  padding: 3px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.strategy-wf-baseline {
+  position: absolute;
+  bottom: 1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--opt-border);
+  z-index: 0;
+}
+
+.strategy-wf-label-row {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.strategy-wf-lbl {
+  flex: 1;
+  text-align: center;
+  font-size: 9px;
+  color: var(--opt-faint);
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.strategy-wf-divider {
+  height: 1px;
+  background: var(--opt-border);
+  margin: 10px 0;
+  border: none;
+}
+
+.strategy-wf-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.strategy-wf-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.strategy-wf-stat-label {
+  font-size: 9px;
+  color: var(--opt-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.strategy-wf-stat-value {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+/* ═══════════════════════════════════════════════
+   Component 3 — Overfitting Detection v2
+   ═══════════════════════════════════════════════ */
+.strategy-overfit-panel {
+  padding: 10px 13px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.strategy-ov-legend {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding-bottom: 10px;
+  margin-bottom: 2px;
+  font-size: 10px;
+  color: var(--opt-faint);
+  border-bottom: 1px solid var(--opt-border);
+  flex-wrap: wrap;
+}
+
+.strategy-ov-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.strategy-ov-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.strategy-ov-dot.is-dot { background: var(--opt-blue); }
+.strategy-ov-dot.oos-dot { background: var(--opt-green); }
+
+.strategy-ov-gap-legend {
+  margin-left: auto;
+  font-style: italic;
+}
+
+.strategy-ov-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--opt-border);
+}
+
+.strategy-ov-label {
+  flex: 0 0 90px;
+  width: 90px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10px;
+  color: var(--opt-muted);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.strategy-ov-label span:first-child {
+  font-size: 9px;
+  color: var(--opt-faint);
+}
+
+.strategy-ov-bars {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.strategy-ov-track {
+  height: 7px;
+  background: var(--opt-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.strategy-ov-fill {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.strategy-ov-fill.is-fill { background: var(--opt-blue); }
+.strategy-ov-fill.oos-fill { background: var(--opt-green); }
+
+.strategy-ov-nums {
+  flex: 0 0 110px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10px;
+}
+
+.strategy-ov-is { color: var(--opt-blue); }
+.strategy-ov-oos { color: var(--opt-green); }
+
+.strategy-ov-gap {
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.strategy-ov-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  margin-top: 10px;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.strategy-ov-callout span:first-child {
+  font-size: 13px;
+  flex: 0 0 auto;
+  margin-top: -1px;
+}
+
+.strategy-ov-callout.warn {
+  background: rgba(186, 117, 23, 0.18);
+  border: 1px solid rgba(186, 117, 23, 0.35);
+  color: var(--opt-amber);
+}
+
+.strategy-ov-callout.ok {
+  background: rgba(29, 158, 117, 0.14);
+  border: 1px solid rgba(29, 158, 117, 0.3);
+  color: var(--opt-green);
+}
+
+:root[data-theme="light"] .strategy-ov-callout.warn {
+  background: #fff8e1;
+  border-color: #f5a623;
+  color: #7a4d00;
+}
+
+:root[data-theme="light"] .strategy-ov-callout.ok {
+  background: #eaf6f0;
+  border-color: #1d9e75;
+  color: #0d4f33;
+}
+
+/* ═══════════════════════════════════════════════
+   Component 3 — Callout circle icons
+   ═══════════════════════════════════════════════ */
+.strategy-ov-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex: 0 0 18px;
+  margin-top: 1px;
+  color: #fff;
+}
+
+.strategy-ov-icon.warn-icon { background: var(--opt-amber); }
+.strategy-ov-icon.ok-icon   { background: var(--opt-green); }
+
+.strategy-ov-gap-val {
+  font-weight: 700;
+  font-size: 10px;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+/* ═══════════════════════════════════════════════
+   Component 4 — Ranked Table
+   ═══════════════════════════════════════════════ */
+
+/* Sticky header */
+.strategy-ranked-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--opt-bg2);
+}
+
+/* Row states */
+.strategy-ranked-table tbody tr {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.strategy-ranked-table tbody tr:hover td {
+  background: rgba(148, 163, 184, 0.07);
+}
+
+.strategy-ranked-table tbody tr.selected td {
+  background: rgba(55, 138, 221, 0.14);
+}
+
+/* Pinned row — inset left border on first td so layout is unaffected */
+.strategy-ranked-table tbody tr.pinned td:first-child {
+  box-shadow: inset 3px 0 0 var(--opt-purple);
+}
+
+/* Rank cell center */
+.rk-rank { text-align: center !important; }
+.rk-pin  { text-align: center !important; }
+
+/* Params cell — monospace, secondary color */
+.rk-params {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10px;
+  color: var(--opt-muted);
+}
+
+/* Mono metric cells */
+.rk-mono {
+  font-family: Consolas, "Courier New", monospace;
+  font-weight: 500;
+}
+
+.rk-green  { color: var(--opt-green); }
+.rk-red    { color: var(--opt-red); }
+.rk-amber  { color: var(--opt-amber); }
+.rk-muted  { color: var(--opt-muted); }
+
+/* Pin button */
+.strategy-pin-run-btn {
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  color: var(--opt-faint);
+}
+
+.strategy-pin-run-btn:hover { color: var(--opt-purple); }
+
+/* ── Overfitting pill badges (replaces overfit-badge) ── */
+.strategy-ov-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.strategy-ov-pill.low {
+  background: rgba(29, 158, 117, 0.15);
+  color: var(--opt-green);
+  border: 1px solid rgba(29, 158, 117, 0.3);
+}
+
+.strategy-ov-pill.med {
+  background: rgba(186, 117, 23, 0.15);
+  color: var(--opt-amber);
+  border: 1px solid rgba(186, 117, 23, 0.3);
+}
+
+.strategy-ov-pill.high {
+  background: rgba(226, 75, 74, 0.15);
+  color: var(--opt-red);
+  border: 1px solid rgba(226, 75, 74, 0.3);
+}
+
+:root[data-theme="light"] .strategy-ov-pill.low  { background: #eaf6f0; color: #0d6840; border-color: #1d9e75; }
+:root[data-theme="light"] .strategy-ov-pill.med  { background: #fff3e0; color: #7a4d00; border-color: #f5a623; }
+:root[data-theme="light"] .strategy-ov-pill.high { background: #fdecea; color: #9b1c1c; border-color: #e24b4a; }
+
+/* Sort dropdown row — allow Export CSV button */
+.strategy-results-sort-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
