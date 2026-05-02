@@ -1,76 +1,6 @@
 <div id="strategylab-view" class="view-pane hidden">
   <div class="strategy-lab">
-    <aside class="strategy-sidebar">
-      <div class="strategy-sidebar-header">
-        <div>
-          <div class="strategy-sidebar-kicker">QuantLab</div>
-          <h3>Research Workspace</h3>
-        </div>
-        <div class="strategy-sidebar-actions">
-          <button id="strategy-sidebar-toggle" type="button" class="icon-button icon-button-text" aria-expanded="true"
-            title="Collapse sidebar">Collapse</button>
-          <button id="strategy-new-btn" type="button" class="secondary-button">New</button>
-        </div>
-      </div>
-
-      <div class="strategy-sidebar-stats">
-        <div class="strategy-sidebar-stat">
-          <span class="strategy-sidebar-stat-label">Saved</span>
-          <strong id="strategy-sidebar-saved-count">0</strong>
-        </div>
-        <div class="strategy-sidebar-stat">
-          <span class="strategy-sidebar-stat-label">Backtests</span>
-          <strong id="strategy-sidebar-backtest-count">0</strong>
-        </div>
-        <div class="strategy-sidebar-stat">
-          <span class="strategy-sidebar-stat-label">Paper</span>
-          <strong id="strategy-sidebar-paper-count">0</strong>
-        </div>
-      </div>
-
-      <div class="strategy-sidebar-section">
-        <div class="strategy-section-title-row">
-          <span class="strategy-section-title">Scanner</span>
-        </div>
-        <div id="strategy-scanner-summary" class="strategy-empty-state">No market regime snapshot yet.</div>
-      </div>
-
-      <div class="strategy-sidebar-section">
-        <div class="strategy-section-title-row">
-          <span class="strategy-section-title">Portfolio</span>
-        </div>
-        <div id="strategy-portfolio-summary" class="strategy-empty-state">No paper portfolio running.</div>
-      </div>
-
-      <div class="strategy-sidebar-section">
-        <div class="strategy-section-title-row">
-          <span class="strategy-section-title">Live Runtime</span>
-        </div>
-        <div id="strategy-live-runtime-summary" class="strategy-empty-state">Paper/live runtime is idle.</div>
-      </div>
-
-      <div class="strategy-sidebar-section">
-        <div class="strategy-section-title-row">
-          <span class="strategy-section-title">Saved Strategies</span>
-          <button id="strategy-refresh-list-btn" type="button" class="icon-button icon-button-text">Refresh</button>
-        </div>
-        <div id="strategy-list-empty" class="strategy-empty-state hidden">No saved strategies yet.</div>
-        <div id="strategy-list" class="strategy-list"></div>
-      </div>
-
-      <div class="strategy-sidebar-section">
-        <div class="strategy-section-title-row">
-          <span class="strategy-section-title">Recent Backtests</span>
-          <button id="strategy-refresh-backtests-btn" type="button"
-            class="icon-button icon-button-text">Refresh</button>
-        </div>
-        <div id="strategy-backtests-empty" class="strategy-empty-state hidden">No backtests saved yet.</div>
-        <div id="strategy-backtests-list" class="strategy-list"></div>
-      </div>
-    </aside>
-    <button id="strategy-sidebar-rail-toggle" type="button" class="strategy-sidebar-rail-toggle hidden"
-      aria-label="Show QuantLab sidebar" title="Show QuantLab sidebar">&gt;&gt;</button>
-    <div class="strategy-split-handle strategy-sidebar-handle" data-split-target="sidebar" aria-hidden="true"></div>
+    
 
     <section class="strategy-workspace">
 
@@ -143,7 +73,75 @@
 
       </div>
 
-      <div class="strategy-main-grid">
+      <div class="strategy-backtest-body" style="display: flex; flex: 1; min-height: 0;">
+<aside class="strategy-sidebar">
+      <div class="strategy-sidebar-header">
+        <div>
+          <div class="strategy-sidebar-kicker">QuantLab</div>
+          <h3>Research Workspace</h3>
+        </div>
+        <div class="strategy-sidebar-actions">
+          <button id="strategy-sidebar-toggle" type="button" class="icon-button icon-button-text" aria-expanded="true"
+            title="Collapse sidebar">Collapse</button>
+          <button id="strategy-new-btn" type="button" class="secondary-button">New</button>
+        </div>
+      </div>
+
+      <div class="strategy-sidebar-stats">
+        <div class="strategy-sidebar-stat">
+          <span class="strategy-sidebar-stat-label">Saved</span>
+          <strong id="strategy-sidebar-saved-count">0</strong>
+        </div>
+        <div class="strategy-sidebar-stat">
+          <span class="strategy-sidebar-stat-label">Backtests</span>
+          <strong id="strategy-sidebar-backtest-count">0</strong>
+        </div>
+        <div class="strategy-sidebar-stat">
+          <span class="strategy-sidebar-stat-label">Paper</span>
+          <strong id="strategy-sidebar-paper-count">0</strong>
+        </div>
+      </div>
+
+      <div class="strategy-sidebar-section">
+        <div class="strategy-section-title-row">
+          <span class="strategy-section-title">Scanner</span>
+        </div>
+        <div id="strategy-scanner-summary" class="strategy-empty-state">No market regime snapshot yet.</div>
+      </div>
+
+      <div class="strategy-sidebar-section">
+        <div class="strategy-section-title-row">
+          <span class="strategy-section-title">Portfolio</span>
+        </div>
+        <div id="strategy-portfolio-summary" class="strategy-empty-state">No paper portfolio running.</div>
+      </div>
+
+      <div class="strategy-sidebar-section">
+        <div class="strategy-section-title-row">
+          <span class="strategy-section-title">Live Runtime</span>
+        </div>
+        <div id="strategy-live-runtime-summary" class="strategy-empty-state">Paper/live runtime is idle.</div>
+      </div>
+
+      <div class="strategy-sidebar-section strategy-opt-sec" style="padding-top: 16px; border-top: 1px solid var(--border);">
+        <div class="strategy-toolbar-field">
+          <label for="strategy-list">Saved Strategies</label>
+          <select id="strategy-list"><option value="">No saved strategies yet</option></select>
+        </div>
+      </div>
+
+      <div class="strategy-sidebar-section strategy-opt-sec">
+        <div class="strategy-toolbar-field">
+          <label for="strategy-backtests-list">Recent Backtests</label>
+          <select id="strategy-backtests-list"><option value="">No backtests saved yet</option></select>
+        </div>
+      </div>
+    </aside>
+    <button id="strategy-sidebar-rail-toggle" type="button" class="strategy-sidebar-rail-toggle hidden"
+      aria-label="Show QuantLab sidebar" title="Show QuantLab sidebar">&gt;&gt;</button>
+    <div class="strategy-split-handle strategy-sidebar-handle" data-split-target="sidebar" aria-hidden="true"></div>
+<div class="strategy-content-wrapper" style="flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; height: 100%;">
+<div class="strategy-main-grid">
         <section class="strategy-chart-panel">
           <div class="strategy-panel-header">
             <div>
@@ -418,6 +416,8 @@
           </div>
         </section>
       </div>
+</div>
+</div>
       </div>
 
       <div id="strategy-optimize-tab-pane" class="strategy-primary-tab-pane hidden">
@@ -536,7 +536,7 @@
             <div class="strategy-opt-left-resize" aria-hidden="true"></div>
 
             <main class="strategy-opt-center">
-              <div id="strategy-optimization-summary" class="strategy-empty-state">Optimization results will appear here.</div>
+              <div id="strategy-optimization-summary" class="strategy-empty-state"></div>
               <div id="strategy-optimization-diagnostics" class="strategy-optimization-diagnostics hidden"></div>
               <div id="strategy-optimization-pinned" class="strategy-pinned-runs hidden"></div>
               <div id="strategy-pinned-comparison-table" class="strategy-table-shell hidden"></div>

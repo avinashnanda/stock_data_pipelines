@@ -16,7 +16,12 @@ function setStrategySignals(signals) {
 }
 
 function clearStrategySignals() {
-  const chart = widget?.activeChart?.();
+  let chart;
+  try {
+    chart = widget?.activeChart?.();
+  } catch (_) {
+    // Widget not ready yet
+  }
   if (!chart || typeof chart.removeEntity !== "function") {
     _strategySignalShapes = [];
     return;
@@ -33,7 +38,12 @@ function clearStrategySignals() {
 }
 
 function applyStrategySignals() {
-  const chart = widget?.activeChart?.();
+  let chart;
+  try {
+    chart = widget?.activeChart?.();
+  } catch (_) {
+    // Widget not ready yet
+  }
   if (!chart || typeof chart.createShape !== "function") return;
 
   clearStrategySignals();

@@ -49,26 +49,33 @@ function initStrategyLab() {
   if (_strategyLabInitialized) return;
   _strategyLabInitialized = true;
 
-  _initializeStrategyDates();
-  restoreStrategySidebarState();
-  _bindStrategyLabEvents();
-  if (typeof initStrategyLabSplits === "function") {
-    initStrategyLabSplits();
+  try {
+    _initializeStrategyDates();
+    restoreStrategySidebarState();
+    _bindStrategyLabEvents();
+    if (typeof initStrategyLabSplits === "function") {
+      initStrategyLabSplits();
+    }
+    initOptimizerLeftResize();
+    initMaximizeButtons();
+    if (typeof initStrategyEditor === "function") {
+      initStrategyEditor().catch((error) => console.error(error));
+    }
+    loadOptimizationSessionLists();
+    resetStrategyForm();
+    renderOptimizationParameterRows(parseOptimizationGridSafe());
+    updateOptimizationExecutionHints();
+  } catch (error) {
+    console.error("Strategy Lab UI setup error (non-fatal):", error);
   }
-  initOptimizerLeftResize();
-  initMaximizeButtons();
-  if (typeof initStrategyEditor === "function") {
-    initStrategyEditor().catch((error) => console.error(error));
-  }
-  loadOptimizationSessionLists();
-  resetStrategyForm();
-  renderOptimizationParameterRows(parseOptimizationGridSafe());
-  updateOptimizationExecutionHints();
+
   loadStrategyCapabilities().catch((error) => console.error(error));
   loadStrategyModels().catch((error) => console.error(error));
-  refreshStrategyList().catch((error) => console.error(error));
-  refreshBacktestHistory().catch((error) => console.error(error));
   refreshPaperSessions().catch((error) => console.error(error));
+  Promise.allSettled([
+    refreshStrategyList(),
+    refreshBacktestHistory(),
+  ]).then(() => renderOptimizeSidebar()).catch((error) => console.error(error));
 }
 
 function getStarterStrategyDraft() {
@@ -824,7 +831,6 @@ async function refreshStrategyList() {
   _strategyListCache = items;
   renderStrategyList(items);
   renderOptimizeStrategySelector(items);
-  renderOptimizeSidebar();
   updateSidebarStats();
 
   const remembered = window.localStorage.getItem("strategy_lab_last_strategy_id");
@@ -837,7 +843,6 @@ async function refreshBacktestHistory() {
   const items = await window.strategyStorageApi.listBacktests();
   _strategyBacktestListCache = items;
   renderBacktestHistory(items);
-  renderOptimizeSidebar();
   updateScannerSummary();
   updateSidebarStats();
 }
@@ -853,103 +858,51 @@ async function refreshPaperSessions() {
 }
 
 function renderStrategyList(items) {
-  const list = $("strategy-list");
-  const empty = $("strategy-list-empty");
-  if (!list || !empty) return;
-  list.innerHTML = "";
-  empty.classList.toggle("hidden", items.length > 0);
+  const node = $("strategy-list");
+  if (!node) return;
 
-  const header = document.createElement("div");
-  header.className = "strategy-list-panel-header";
-  header.innerHTML = `
-    <span>${items.length} saved</span>
-    <span>Load | Compare</span>
-  `;
-  list.appendChild(header);
+  if (!items || !items.length) {
+    node.innerHTML = `<option value="">No saved strategies yet</option>`;
+    return;
+  }
 
-  items.forEach((item, index) => {
-    const button = document.createElement("div");
-    button.className = "strategy-list-item strategy-list-row";
-    button.dataset.strategyId = item.id;
-    const updated = item.updated_at ? new Date(item.updated_at).toLocaleString() : "Just now";
-    button.innerHTML = `
-      <div class="strategy-list-item-head">
-        <input class="strategy-compare-checkbox" type="checkbox" ${_strategyCompareSelection.has(item.id) ? "checked" : ""} />
-        <div style="flex:1">
-          <h4 title="${escapeStrategyHtml(item.name || "")}">${escapeStrategyHtml(item.name || `Strategy ${index + 1}`)}</h4>
-          <div class="strategy-list-meta">${escapeStrategyHtml((item.tags || []).join(" | ") || "No tags")}</div>
-        </div>
-        <button type="button" class="strategy-delete-item-btn icon-button icon-button-text" title="Delete strategy">Delete</button>
-      </div>
-      <div class="strategy-list-desc">${escapeStrategyHtml(item.description || "No description yet.")}</div>
-      <div class="strategy-list-meta" style="margin-top:8px">Updated ${escapeStrategyHtml(updated)}</div>
-    `;
-    button.addEventListener("click", (event) => {
-      if (event.target && (event.target.classList.contains("strategy-compare-checkbox") || event.target.classList.contains("strategy-delete-item-btn"))) return;
-      loadStrategyIntoForm(item.id).catch((error) => _appendStrategyLog(`Load failed: ${error.message}`));
-    });
-    const checkbox = button.querySelector(".strategy-compare-checkbox");
-    if (checkbox) {
-      checkbox.addEventListener("click", (event) => {
-        event.stopPropagation();
-        if (checkbox.checked) {
-          _strategyCompareSelection.add(item.id);
-        } else {
-          _strategyCompareSelection.delete(item.id);
-        }
-      });
+  node.innerHTML = `<option value="">-- Select Strategy --</option>` + items.map((item) => {
+    const text = escapeStrategyHtml(item.name || "Untitled Strategy");
+    const isSelected = item.id === _strategySelectedId ? "selected" : "";
+    return `<option value="${escapeStrategyHtml(item.id)}" ${isSelected}>${text}</option>`;
+  }).join("");
+
+  const newSelect = node.cloneNode(true);
+  node.parentNode.replaceChild(newSelect, node);
+  newSelect.addEventListener("change", (e) => {
+    if (e.target.value !== "") {
+      loadStrategyIntoForm(e.target.value).catch(err => _appendStrategyLog(`Load failed: ${err.message}`));
     }
-    const deleteButton = button.querySelector(".strategy-delete-item-btn");
-    if (deleteButton) {
-      deleteButton.addEventListener("click", (event) => {
-        event.stopPropagation();
-        deleteStrategy(item.id).catch((error) => _appendStrategyLog(`Delete failed: ${error.message}`));
-      });
-    }
-    list.appendChild(button);
   });
-
-  _highlightSelectedStrategy();
 }
 
 function renderBacktestHistory(items) {
-  const list = $("strategy-backtests-list");
-  const empty = $("strategy-backtests-empty");
-  if (!list || !empty) return;
-  list.innerHTML = "";
-  empty.classList.toggle("hidden", items.length > 0);
+  const node = $("strategy-backtests-list");
+  if (!node) return;
 
-  items.forEach((item) => {
-    const button = document.createElement("div");
-    button.className = "strategy-list-item";
-    button.dataset.runId = item.run_id;
-    const metrics = item.metrics || {};
-    const created = item.created_at ? new Date(item.created_at).toLocaleString() : "Just now";
-    button.innerHTML = `
-      <div class="strategy-list-item-head">
-        <div style="flex:1">
-          <h4>${item.strategy_name || "Backtest Run"}</h4>
-          <div class="strategy-list-meta">${item.symbol || "--"} | ${item.timeframe || "--"} | ${formatStrategyMetric(metrics.return_pct, "%")} return</div>
-        </div>
-        <button type="button" class="strategy-delete-backtest-btn icon-button icon-button-text" title="Delete backtest">Delete</button>
-      </div>
-      <div class="strategy-list-desc">${item.start_date || "--"} to ${item.end_date || "--"}</div>
-      <div class="strategy-list-meta" style="margin-top:8px">Run ${created}</div>
-    `;
-    button.addEventListener("click", () => {
-      loadBacktestRun(item.run_id).catch((error) => _appendStrategyLog(`Backtest load failed: ${error.message}`));
-    });
-    const deleteButton = button.querySelector(".strategy-delete-backtest-btn");
-    if (deleteButton) {
-      deleteButton.addEventListener("click", (event) => {
-        event.stopPropagation();
-        deleteBacktestRun(item.run_id).catch((error) => _appendStrategyLog(`Backtest delete failed: ${error.message}`));
-      });
+  if (!items || !items.length) {
+    node.innerHTML = `<option value="">No backtests saved yet</option>`;
+    return;
+  }
+
+  node.innerHTML = `<option value="">-- Select Backtest --</option>` + items.map((item) => {
+    const text = `${item.strategy_name || "Backtest"} (${item.symbol || "--"} - ${formatStrategyMetric(item.metrics?.return_pct, "%")})`;
+    const isSelected = item.run_id === _strategySelectedRunId ? "selected" : "";
+    return `<option value="${escapeStrategyHtml(item.run_id)}" ${isSelected}>${text}</option>`;
+  }).join("");
+
+  const newSelect = node.cloneNode(true);
+  node.parentNode.replaceChild(newSelect, node);
+  newSelect.addEventListener("change", (e) => {
+    if (e.target.value !== "") {
+      loadBacktestRun(e.target.value).catch(err => _appendStrategyLog(`Backtest load failed: ${err.message}`));
     }
-    list.appendChild(button);
   });
-
-  _highlightSelectedBacktest();
 }
 
 function renderOptimizeStrategySelector(items = _strategyListCache) {
@@ -1031,18 +984,18 @@ function renderInPageOptimizationSessions() {
 function renderOptimizationSessionList(elementId, items, emptyText) {
   const node = $(elementId);
   if (!node) return;
-  
+
   if (!items || !items.length) {
     node.innerHTML = `<option value="">${escapeStrategyHtml(emptyText)}</option>`;
     return;
   }
-  
+
   node.innerHTML = `<option value="">-- Select session --</option>` + items.map((item, index) => {
     const text = `${escapeStrategyHtml(item.name || item.strategyName || "Optimization")} (${escapeStrategyHtml(item.method || "Method")} - ${formatStrategyMetric(item.bestReturn, "%")})`;
     const isSelected = (item.id && item.id === _strategyLoadedSessionId) ? "selected" : "";
     return `<option value="${index}" ${isSelected}>${text}</option>`;
   }).join("");
-  
+
   const newSelect = node.cloneNode(true);
   node.parentNode.replaceChild(newSelect, node);
   newSelect.addEventListener("change", (e) => {
@@ -1442,9 +1395,9 @@ function renderStrategyTrades(trades) {
     row.innerHTML = `
       <td>${index + 1}</td>
       <td>${side}</td>
-      <td>${trade.entry_date || trade.entry_time || trade.date || trade.EntryTime || "--"}</td>
+      <td>${formatStrategyDateString(trade.entry_date || trade.entry_time || trade.date || trade.EntryTime || "--")}</td>
       <td>${trade.entry_price || trade.entry || trade.EntryPrice || "--"}</td>
-      <td>${trade.exit_date || trade.exit_time || trade.ExitTime || "--"}</td>
+      <td>${formatStrategyDateString(trade.exit_date || trade.exit_time || trade.ExitTime || "--")}</td>
       <td>${trade.exit_price || trade.exit || trade.ExitPrice || "--"}</td>
       <td>${trade.size || trade.qty || trade.Size || "--"}</td>
       <td>${trade.pnl || trade.PnL || "--"}</td>
@@ -1934,7 +1887,7 @@ function renderStrategyOptimizationResults(payload) {
     _strategyLatestOptimizationPayload = null;
     _strategySelectedOptimizationRun = null;
     summary.className = "strategy-empty-state";
-    summary.textContent = "Optimization results will appear here.";
+    summary.textContent = "";
     body.innerHTML = '<tr><td colspan="10" class="strategy-empty-cell">No optimization run yet.</td></tr>';
     renderSensitivityPanel([], null);
     if (diagnosticsNode) { diagnosticsNode.classList.add("hidden"); diagnosticsNode.textContent = ""; }
@@ -2012,10 +1965,10 @@ function renderStrategyOptimizationResults(payload) {
   const objectiveLabel = document.querySelector('input[name="strategy-opt-objective-radio"]:checked')?.value || $("strategy-opt-objective-select")?.value || "sharpe";
   const objectiveSelect = $("strategy-opt-objective-select");
   if (objectiveSelect) {
-      objectiveSelect.addEventListener("change", (e) => {
-          const formula = $("strategy-opt-custom-formula");
-          if (formula) formula.style.display = e.target.value === "custom" ? "block" : "none";
-      });
+    objectiveSelect.addEventListener("change", (e) => {
+      const formula = $("strategy-opt-custom-formula");
+      if (formula) formula.style.display = e.target.value === "custom" ? "block" : "none";
+    });
   }
   renderSensitivityPanel(sensitivityRows, objectiveLabel);
 
@@ -2151,7 +2104,7 @@ function renderStrategyOptimizationCharts(payload) {
         : buildSyntheticEquityCurve(row.metrics?.return_pct, index),
     }));
     const colors = ["#2962ff", "#10b981", "#f5a623", "#f23645", "#8b5cf6"];
-    
+
     // Find first available equity curve to get labels and buy_hold
     const firstCurve = topRows.find(r => r.equity_curve && r.equity_curve.length)?.equity_curve || [];
     const labels = firstCurve.map(p => p.time);
@@ -2198,10 +2151,10 @@ function renderStrategyOptimizationCharts(payload) {
           legend: {
             display: true,
             position: "bottom",
-            labels: { 
-              boxWidth: 12, 
-              font: { size: 11, weight: '500' }, 
-              color: "#94a3b8", 
+            labels: {
+              boxWidth: 12,
+              font: { size: 11, weight: '500' },
+              color: "#94a3b8",
               usePointStyle: true,
               padding: 15
             },
@@ -2226,7 +2179,7 @@ function renderStrategyOptimizationCharts(payload) {
           },
         },
         scales: {
-          x: { 
+          x: {
             display: true,
             title: {
               display: true,
@@ -2255,7 +2208,7 @@ function renderStrategyOptimizationCharts(payload) {
               color: '#64748b',
               font: { size: 10, weight: 'bold' }
             },
-            grid: { 
+            grid: {
               color: "rgba(100, 116, 139, 0.18)",
               drawBorder: false
             },
@@ -2302,6 +2255,20 @@ function buildSyntheticEquityCurve(returnPct = 20, seed = 1) {
   });
 }
 
+function formatStrategyDateString(dateStr) {
+  if (!dateStr || dateStr === "--") return "--";
+  try {
+    const parsed = new Date(dateStr);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+  } catch (e) { }
+  return dateStr;
+}
+
 function formatStrategyDateTick(value) {
   const text = String(value || "");
   const parsed = new Date(text);
@@ -2337,22 +2304,22 @@ function renderSelectedOptimizationRun(selection) {
     </div>
     <div class="strategy-detail-metrics">
       ${[
-        ["Net return", formatStrategyMetric(metrics.return_pct, "%"), metrics.return_pct],
-        ["Sharpe", formatStrategyMetric(metrics.sharpe), metrics.sharpe],
-        ["Profit factor", formatStrategyMetric(metrics.profit_factor), metrics.profit_factor],
-        ["Max DD", formatStrategyMetric(metrics.max_drawdown, "%"), metrics.max_drawdown],
-        ["Win rate", formatStrategyMetric(metrics.win_rate, "%"), metrics.win_rate],
-        ["Trades", formatStrategyMetric(metrics.total_trades, "count"), metrics.total_trades],
-      ].map(([label, value, raw]) => {
-          let colorClass = "";
-          const num = Number(raw);
-          if (label === "Net return") colorClass = num >= 0 ? "metric-positive" : "metric-negative";
-          else if (label === "Sharpe") colorClass = num >= 0 ? "metric-positive" : "metric-negative";
-          else if (label === "Profit factor") colorClass = num >= 1 ? "metric-positive" : "metric-negative";
-          else if (label === "Max DD") colorClass = Math.abs(num) <= 15 ? "metric-positive" : "metric-negative";
-          else if (label === "Win rate") colorClass = num >= 50 ? "metric-positive" : "metric-negative";
-          return `<div class="strategy-metric-card"><span class="strategy-metric-label">${label}</span><strong class="strategy-metric-value ${colorClass}">${value}</strong></div>`;
-      }).join("")}
+      ["Net return", formatStrategyMetric(metrics.return_pct, "%"), metrics.return_pct],
+      ["Sharpe", formatStrategyMetric(metrics.sharpe), metrics.sharpe],
+      ["Profit factor", formatStrategyMetric(metrics.profit_factor), metrics.profit_factor],
+      ["Max DD", formatStrategyMetric(metrics.max_drawdown, "%"), metrics.max_drawdown],
+      ["Win rate", formatStrategyMetric(metrics.win_rate, "%"), metrics.win_rate],
+      ["Trades", formatStrategyMetric(metrics.total_trades, "count"), metrics.total_trades],
+    ].map(([label, value, raw]) => {
+      let colorClass = "";
+      const num = Number(raw);
+      if (label === "Net return") colorClass = num >= 0 ? "metric-positive" : "metric-negative";
+      else if (label === "Sharpe") colorClass = num >= 0 ? "metric-positive" : "metric-negative";
+      else if (label === "Profit factor") colorClass = num >= 1 ? "metric-positive" : "metric-negative";
+      else if (label === "Max DD") colorClass = Math.abs(num) <= 15 ? "metric-positive" : "metric-negative";
+      else if (label === "Win rate") colorClass = num >= 50 ? "metric-positive" : "metric-negative";
+      return `<div class="strategy-metric-card"><span class="strategy-metric-label">${label}</span><strong class="strategy-metric-value ${colorClass}">${value}</strong></div>`;
+    }).join("")}
     </div>
     <div class="strategy-mini-equity"><canvas id="strategy-selected-equity-chart"></canvas></div>
     <div class="strategy-table-shell strategy-detail-trades">
@@ -2360,19 +2327,19 @@ function renderSelectedOptimizationRun(selection) {
         <thead><tr><th>Side</th><th>Entry</th><th>Exit</th><th>P&amp;L</th></tr></thead>
         <tbody>
           ${trades.length ? trades.map((trade) => {
-              const pnlStr = String(trade.pnl || trade.PnL || trade.profit || "");
-              const pnlNum = Number(pnlStr.replace(/[^0-9.-]/g, ''));
-              let pnlClass = "";
-              if (!isNaN(pnlNum) && pnlNum !== 0 && pnlStr.trim() !== "") {
-                  pnlClass = pnlNum > 0 ? "metric-positive" : "metric-negative";
-              } else if (pnlStr.includes("+") || pnlNum > 0) pnlClass = "metric-positive";
-              else if (pnlStr.includes("-") || pnlNum < 0) pnlClass = "metric-negative";
-              
-              const sideStr = String(trade.side || "").toUpperCase();
-              const sideClass = (sideStr === "BUY" || sideStr === "LONG") ? "metric-positive" : ((sideStr === "SELL" || sideStr === "SHORT") ? "metric-negative" : "");
-              
-              return `<tr><td class="${sideClass}">${escapeStrategyHtml(trade.side || "--")}</td><td>${escapeStrategyHtml(trade.entry_price || trade.entry || "--")}</td><td>${escapeStrategyHtml(trade.exit_price || trade.exit || "--")}</td><td class="${pnlClass}">${escapeStrategyHtml(trade.pnl || trade.profit || trade.PnL || "--")}</td></tr>`;
-          }).join("") : '<tr><td colspan="4" class="strategy-empty-cell">No trade log returned.</td></tr>'}
+      const pnlStr = String(trade.pnl || trade.PnL || trade.profit || "");
+      const pnlNum = Number(pnlStr.replace(/[^0-9.-]/g, ''));
+      let pnlClass = "";
+      if (!isNaN(pnlNum) && pnlNum !== 0 && pnlStr.trim() !== "") {
+        pnlClass = pnlNum > 0 ? "metric-positive" : "metric-negative";
+      } else if (pnlStr.includes("+") || pnlNum > 0) pnlClass = "metric-positive";
+      else if (pnlStr.includes("-") || pnlNum < 0) pnlClass = "metric-negative";
+
+      const sideStr = String(trade.side || "").toUpperCase();
+      const sideClass = (sideStr === "BUY" || sideStr === "LONG") ? "metric-positive" : ((sideStr === "SELL" || sideStr === "SHORT") ? "metric-negative" : "");
+
+      return `<tr><td class="${sideClass}">${escapeStrategyHtml(trade.side || "--")}</td><td>${escapeStrategyHtml(trade.entry_price || trade.entry || "--")}</td><td>${escapeStrategyHtml(trade.exit_price || trade.exit || "--")}</td><td class="${pnlClass}">${escapeStrategyHtml(trade.pnl || trade.profit || trade.PnL || "--")}</td></tr>`;
+    }).join("") : '<tr><td colspan="4" class="strategy-empty-cell">No trade log returned.</td></tr>'}
         </tbody>
       </table>
     </div>

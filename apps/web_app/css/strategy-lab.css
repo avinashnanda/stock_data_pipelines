@@ -1,6 +1,6 @@
 .strategy-lab {
-  display: grid;
-  grid-template-columns: minmax(240px, var(--strategy-sidebar-width, 280px)) 10px minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
   background: var(--bg);
@@ -3033,4 +3033,22 @@
   display: flex;
   align-items: center;
   gap: 7px;
+}
+
+.strategy-backtest-body {
+  display: grid !important;
+  grid-template-columns: minmax(240px, var(--strategy-sidebar-width, 280px)) 10px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+.strategy-lab.sidebar-collapsed .strategy-backtest-body {
+  grid-template-columns: 0 36px minmax(0, 1fr);
+}
+.strategy-content-wrapper {
+  grid-column: 3;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
 }
