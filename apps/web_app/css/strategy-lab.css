@@ -800,6 +800,30 @@
   font-size: 22px;
 }
 
+/* Full-width divider separating the two metric sections */
+.strategy-metric-divider {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 4px;
+  border-top: 1px solid var(--panel-border);
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.strategy-metric-divider small {
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.7;
+  cursor: help;
+}
+
+
 .strategy-table-shell {
   overflow: auto;
 }

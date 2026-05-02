@@ -1285,11 +1285,32 @@ function renderStrategyRunResponse(payload) {
 function formatStrategyMetric(value, type = "number") {
   if (value === undefined || value === null || value === "") return "--";
   if (type === "count") return String(value);
+  if (type === "date") return formatStrategyDateString(String(value));
+  if (type === "duration") return formatIsoDuration(String(value));
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return String(value);
   if (type === "%") return `${numeric.toFixed(2)}%`;
   if (type === "currency") return formatCompactValue(numeric);
   return numeric.toFixed(2);
+}
+
+/** Convert ISO 8601 duration string like P363DT0H0M0S → "363 days", "2 days 4 hrs" */
+function formatIsoDuration(raw) {
+  if (!raw || raw === "--") return "--";
+  const m = raw.match(/^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
+  if (!m) return raw;
+  const years = parseInt(m[1] || 0);
+  const months = parseInt(m[2] || 0);
+  const days = parseInt(m[3] || 0);
+  const hours = parseInt(m[4] || 0);
+  const minutes = parseInt(m[5] || 0);
+  const parts = [];
+  if (years) parts.push(`${years}y`);
+  if (months) parts.push(`${months}mo`);
+  if (days) parts.push(`${days}d`);
+  if (hours) parts.push(`${hours}h`);
+  if (minutes) parts.push(`${minutes}m`);
+  return parts.length ? parts.join(" ") : "0d";
 }
 
 function escapeStrategyHtml(value) {
@@ -1301,56 +1322,109 @@ function escapeStrategyHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+// Keys already rendered in the primary section — skip in the generic extra-keys loop
+const _STRATEGY_SKIP_METRIC_KEYS = new Set([
+  "cagr", "return_pct", "max_drawdown", "sharpe", "sortino", "win_rate",
+  "profit_factor", "total_trades", "ending_equity", "avg_trade", "best_trade",
+  "worst_trade", "expectancy",
+  // bt_ keys are rendered explicitly in their own ordered section below
+  "bt_start", "bt_end", "bt_duration", "bt_exposure_time_pct",
+  "bt_equity_final", "bt_equity_peak",
+  "bt_return_pct", "bt_buy_hold_return_pct", "bt_return_ann_pct", "bt_volatility_ann_pct",
+  "bt_sharpe_ratio", "bt_sortino_ratio", "bt_calmar_ratio",
+  "bt_max_drawdown_pct", "bt_avg_drawdown_pct",
+  "bt_max_drawdown_duration", "bt_avg_drawdown_duration",
+  "bt_trades", "bt_win_rate_pct",
+  "bt_best_trade_pct", "bt_worst_trade_pct", "bt_avg_trade_pct",
+  "bt_max_trade_duration", "bt_avg_trade_duration",
+  "bt_profit_factor", "bt_expectancy_pct", "bt_sqn", "bt_kelly_criterion",
+]);
+
 function renderStrategyMetrics(metrics) {
   const grid = $("strategy-metrics-grid");
   if (!grid) return;
+
+  // ── Section 1: Core computed metrics (our own build_metrics())
   const metricRows = [
-    ["CAGR", metrics?.cagr, "%"],
-    ["Return %", metrics?.return_pct, "%"],
-    ["Max DD", metrics?.max_drawdown, "%"],
-    ["Sharpe", metrics?.sharpe, "number"],
-    ["Sortino", metrics?.sortino, "number"],
-    ["Win Rate", metrics?.win_rate, "%"],
+    ["Return %",      metrics?.return_pct,    "%"],
+    ["CAGR",          metrics?.cagr,          "%"],
+    ["Max Drawdown",  metrics?.max_drawdown,  "%"],
+    ["Sharpe",        metrics?.sharpe,        "number"],
+    ["Sortino",       metrics?.sortino,       "number"],
+    ["Win Rate",      metrics?.win_rate,      "%"],
     ["Profit Factor", metrics?.profit_factor, "number"],
-    ["Total Trades", metrics?.total_trades, "count"],
+    ["Total Trades",  metrics?.total_trades,  "count"],
     ["Ending Equity", metrics?.ending_equity, "currency"],
-    ["Avg Trade", metrics?.avg_trade, "currency"],
-    ["Best Trade", metrics?.best_trade, "currency"],
-    ["Worst Trade", metrics?.worst_trade, "currency"],
-    ["Calmar Ratio", metrics?.calmar_ratio ?? metrics?.calmar, "number"],
-    ["Recovery Factor", metrics?.recovery_factor, "number"],
-    ["Omega Ratio", metrics?.omega_ratio ?? metrics?.omega, "number"],
-    ["Avg Bars Held", metrics?.avg_bars_held, "number"],
-    ["Max Consecutive Wins", metrics?.max_consecutive_wins, "count"],
-    ["Max Consecutive Losses", metrics?.max_consecutive_losses, "count"],
-    ["Long Win Rate", metrics?.long_win_rate, "%"],
-    ["Short Win Rate", metrics?.short_win_rate, "%"],
-    ["Commission Paid", metrics?.commission_paid, "currency"],
-    ["Slippage Cost", metrics?.slippage_cost, "currency"],
-    ["Gross Profit", metrics?.gross_profit, "currency"],
-    ["Gross Loss", metrics?.gross_loss, "currency"],
-    ["Buy and Hold Return", metrics?.buy_hold_return ?? metrics?.buy_and_hold_return, "%"],
-    ["Alpha vs Benchmark", metrics?.alpha_vs_benchmark ?? metrics?.alpha, "%"],
+    ["Avg Trade",     metrics?.avg_trade,     "currency"],
+    ["Best Trade",    metrics?.best_trade,    "currency"],
+    ["Worst Trade",   metrics?.worst_trade,   "currency"],
+    ["Expectancy",    metrics?.expectancy,    "currency"],
   ];
+
+  // Any extra non-bt_ keys the backend may add in future
   if (metrics) {
     Object.entries(metrics).forEach(([key, value]) => {
-      if (["cagr", "return_pct", "max_drawdown", "sharpe", "sortino", "win_rate", "profit_factor", "total_trades", "ending_equity", "avg_trade", "best_trade", "worst_trade", "calmar_ratio", "calmar", "recovery_factor", "omega_ratio", "omega", "avg_bars_held", "max_consecutive_wins", "max_consecutive_losses", "long_win_rate", "short_win_rate", "commission_paid", "slippage_cost", "gross_profit", "gross_loss", "buy_hold_return", "buy_and_hold_return", "alpha_vs_benchmark", "alpha"].includes(key)) {
-        return;
-      }
+      if (_STRATEGY_SKIP_METRIC_KEYS.has(key)) return;
+      if (key.startsWith("bt_")) return;
       metricRows.push([humanizeStrategyMetricKey(key), value, inferStrategyMetricType(key)]);
-    });
-  } else {
-    STRATEGY_BASE_METRICS.forEach((label, index) => {
-      if (metricRows[index]) metricRows[index][1] = null;
     });
   }
 
-  grid.innerHTML = metricRows.map(([label, value, type]) => `
+  // ── Section 2: backtesting.py native _stats (bt_ prefix) ─ explicit ordered list
+  // These are the raw values directly from backtesting.py, distinct from our computed
+  // metrics above. Sharpe/Sortino may differ because bt_ uses trade-level P&L while
+  // our version uses equity-curve daily returns × sqrt(252).
+  const btRows = [
+    ["BT Start",                  metrics?.bt_start,                 "date"],
+    ["BT End",                    metrics?.bt_end,                   "date"],
+    ["BT Duration",               metrics?.bt_duration,              "duration"],
+    ["BT Exposure Time",          metrics?.bt_exposure_time_pct,     "%"],
+    ["BT Equity Final",           metrics?.bt_equity_final,          "currency"],
+    ["BT Equity Peak",            metrics?.bt_equity_peak,           "currency"],
+    ["BT Return",                 metrics?.bt_return_pct,            "%"],
+    ["BT Buy & Hold Return",      metrics?.bt_buy_hold_return_pct,   "%"],
+    ["BT Return Ann.",            metrics?.bt_return_ann_pct,        "%"],
+    ["BT Volatility Ann.",        metrics?.bt_volatility_ann_pct,    "%"],
+    ["BT Sharpe Ratio",           metrics?.bt_sharpe_ratio,          "number"],
+    ["BT Sortino Ratio",          metrics?.bt_sortino_ratio,         "number"],
+    ["BT Calmar Ratio",           metrics?.bt_calmar_ratio,          "number"],
+    ["BT Max Drawdown",           metrics?.bt_max_drawdown_pct,      "%"],
+    ["BT Avg Drawdown",           metrics?.bt_avg_drawdown_pct,      "%"],
+    ["BT Max Drawdown Duration",  metrics?.bt_max_drawdown_duration, "duration"],
+    ["BT Avg Drawdown Duration",  metrics?.bt_avg_drawdown_duration, "duration"],
+    ["BT Trades",                 metrics?.bt_trades,                "count"],
+    ["BT Win Rate",               metrics?.bt_win_rate_pct,          "%"],
+    ["BT Best Trade",             metrics?.bt_best_trade_pct,        "%"],
+    ["BT Worst Trade",            metrics?.bt_worst_trade_pct,       "%"],
+    ["BT Avg Trade",              metrics?.bt_avg_trade_pct,         "%"],
+    ["BT Max Trade Duration",     metrics?.bt_max_trade_duration,    "duration"],
+    ["BT Avg Trade Duration",     metrics?.bt_avg_trade_duration,    "duration"],
+    ["BT Profit Factor",          metrics?.bt_profit_factor,         "number"],
+    ["BT Expectancy",             metrics?.bt_expectancy_pct,        "%"],
+    ["BT SQN",                    metrics?.bt_sqn,                   "number"],
+    ["BT Kelly Criterion",        metrics?.bt_kelly_criterion,       "number"],
+  ];
+
+  const filterRow = ([, value]) => value !== null && value !== undefined && value !== "";
+  const visiblePrimary = metricRows.filter(filterRow);
+  const visibleBt = btRows.filter(filterRow);
+
+  const renderCard = ([label, value, type]) => `
     <div class="strategy-metric-card">
       <span class="strategy-metric-label">${escapeStrategyHtml(label)}</span>
       <strong class="strategy-metric-value">${escapeStrategyHtml(formatStrategyMetric(value, type))}</strong>
-    </div>
-  `).join("");
+    </div>`;
+
+  const divider = visibleBt.length ? `
+    <div class="strategy-metric-divider">
+      <span>backtesting.py Stats</span>
+      <small title="BT Sharpe/Sortino use trade P&amp;L; above uses equity-curve daily returns">ℹ️ methodology differs</small>
+    </div>` : "";
+
+  grid.innerHTML =
+    visiblePrimary.map(renderCard).join("") +
+    divider +
+    visibleBt.map(renderCard).join("");
 }
 
 function humanizeStrategyMetricKey(key) {
@@ -1363,9 +1437,18 @@ function humanizeStrategyMetricKey(key) {
 
 function inferStrategyMetricType(key) {
   const lower = String(key || "").toLowerCase();
-  if (lower.includes("pct") || lower.includes("rate") || lower.includes("return") || lower.includes("drawdown")) return "%";
-  if (lower.includes("equity") || lower.includes("trade") || lower.includes("cash")) return "currency";
-  if (lower.includes("trades") || lower.includes("count")) return "count";
+  // ISO 8601 duration fields
+  if (lower.includes("duration")) return "duration";
+  // ISO 8601 date/datetime fields
+  if (lower === "bt_start" || lower === "bt_end") return "date";
+  // Percentage fields
+  if (lower.includes("pct") || lower.includes("rate") || lower.includes("return") || lower.includes("drawdown") || lower.includes("volatility")) return "%";
+  // Currency / monetary
+  if (lower.includes("equity") || lower.includes("cash") || lower.includes("profit") || lower.includes("loss") || lower.includes("expectancy")) return "currency";
+  // Trade monetary fields (avg_trade, best_trade, worst_trade) but NOT bt_*_trade_pct
+  if ((lower.includes("trade") || lower.includes("trades")) && !lower.includes("pct") && !lower.startsWith("bt_")) return "currency";
+  // Count
+  if (lower === "bt_trades" || lower.includes("count")) return "count";
   return "number";
 }
 
@@ -1751,6 +1834,7 @@ function renderStrategyEquityChart(points) {
           borderWidth: 1,
           padding: 12,
           callbacks: {
+            title: (items) => formatStrategyDateString(labels[items[0]?.dataIndex]),
             label: function (context) {
               const point = points[context.dataIndex];
               const dataset = context.dataset;
@@ -1774,7 +1858,12 @@ function renderStrategyEquityChart(points) {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { maxTicksLimit: 12, color: "#64748b", font: { size: 10 } },
+          ticks: {
+            maxTicksLimit: 12,
+            color: "#64748b",
+            font: { size: 10 },
+            callback: (value, index) => formatStrategyDateTick(labels[index]),
+          },
         },
         y: {
           grid: { color: "rgba(255, 255, 255, 0.04)" },
@@ -1797,10 +1886,11 @@ function renderStrategyDrawdownChart(points) {
   _strategyDrawdownChart = null;
   if (!points.length) return;
 
+  const ddLabels = points.map((point) => point.time);
   _strategyDrawdownChart = new Chart(context, {
     type: "line",
     data: {
-      labels: points.map((point) => point.time),
+      labels: ddLabels,
       datasets: [
         {
           data: points.map((point) => point.drawdown),
@@ -1814,10 +1904,40 @@ function renderStrategyDrawdownChart(points) {
     },
     options: {
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          enabled: true,
+          backgroundColor: "rgba(15, 23, 42, 0.94)",
+          titleColor: "#94a3b8",
+          bodyColor: "#f8fafc",
+          borderColor: "rgba(255, 255, 255, 0.1)",
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            title: (items) => formatStrategyDateString(ddLabels[items[0]?.dataIndex]),
+            label: (ctx) => `Drawdown: ${Number(ctx.raw).toFixed(2)}%`,
+          },
+        },
+      },
       scales: {
-        x: { ticks: { maxTicksLimit: 8 } },
-        y: { ticks: { callback: (value) => `${Number(value).toFixed(1)}%` } },
+        x: {
+          ticks: {
+            maxTicksLimit: 8,
+            color: "#64748b",
+            font: { size: 10 },
+            callback: (value, index) => formatStrategyDateTick(ddLabels[index]),
+          },
+          grid: { display: false },
+        },
+        y: {
+          ticks: {
+            color: "#64748b",
+            font: { size: 10 },
+            callback: (value) => `${Number(value).toFixed(1)}%`,
+          },
+          grid: { color: "rgba(255, 255, 255, 0.04)" },
+        },
       },
     },
   });
@@ -1871,7 +1991,15 @@ function renderStrategyCompareResults(payload) {
       maintainAspectRatio: false,
       plugins: { legend: { display: true, position: "bottom" } },
       scales: {
-        x: { ticks: { maxTicksLimit: 8 } },
+        x: {
+          ticks: {
+            maxTicksLimit: 8,
+            color: "#64748b",
+            font: { size: 10 },
+            callback: (value, index) => formatStrategyDateTick(curves[0].points[index]?.time),
+          },
+          grid: { display: false },
+        },
       },
     },
   });
@@ -2258,12 +2386,16 @@ function buildSyntheticEquityCurve(returnPct = 20, seed = 1) {
 function formatStrategyDateString(dateStr) {
   if (!dateStr || dateStr === "--") return "--";
   try {
-    const parsed = new Date(dateStr);
+    const str = String(dateStr);
+    const parsed = new Date(str);
     if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toLocaleString(undefined, {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
+      // Date-only strings (no time component) → short date only
+      const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(str);
+      if (isDateOnly) {
+        return parsed.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+      }
+      // ISO datetime with time → show date only (no time clutter in metrics)
+      return parsed.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
     }
   } catch (e) { }
   return dateStr;
@@ -2271,10 +2403,13 @@ function formatStrategyDateString(dateStr) {
 
 function formatStrategyDateTick(value) {
   const text = String(value || "");
-  const parsed = new Date(text);
-  if (!Number.isNaN(parsed.getTime()) && /\d{4}-\d{1,2}-\d{1,2}|\d{4}\/\d{1,2}\/\d{1,2}/.test(text)) {
-    return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  }
+  if (!text) return text;
+  try {
+    const parsed = new Date(text);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    }
+  } catch (e) { }
   return text;
 }
 
