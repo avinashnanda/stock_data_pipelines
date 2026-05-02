@@ -229,8 +229,7 @@
 }
 
 .strategy-workspace {
-  grid-column: 3;
-  grid-row: 1;
+  flex: 1;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
