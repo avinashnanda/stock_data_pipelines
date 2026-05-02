@@ -1463,33 +1463,88 @@ function updateMetricCard(label, value) {
   });
 }
 
+// ── Shared trade-row formatters ───────────────────────────────────────────
+function _tradeFmt() {
+  return {
+    price: (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--";
+    },
+    money: (v) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return "--";
+      const abs = Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return (n < 0 ? "-" : "+") + abs;
+    },
+    pct: (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? `${n >= 0 ? "+" : ""}${n.toFixed(2)}%` : "--";
+    },
+    amount: (qty, price) => {
+      const n = Number(qty) * Number(price);
+      return Number.isFinite(n) ? formatCompactValue(n) : "--";
+    },
+    days: (trade) => {
+      // Prefer server-computed days_held; fall back to JS calculation from timestamps
+      if (trade.days_held != null) return trade.days_held;
+      try {
+        const entryT = trade.entry_time || trade.entry_date || trade.EntryTime || "";
+        const exitT  = trade.exit_time  || trade.exit_date  || trade.ExitTime  || "";
+        if (!entryT || !exitT) return "--";
+        const ms = new Date(exitT).getTime() - new Date(entryT).getTime();
+        return Number.isFinite(ms) && ms >= 0 ? Math.round(ms / 86400000) : "--";
+      } catch { return "--"; }
+    },
+  };
+}
+
+/** Build the tbody rows HTML for a list of trades — shared by backtest and optimize panels */
+function buildTradesTableHTML(trades, emptyColspan = 9) {
+  if (!trades || !trades.length) {
+    return `<tr><td colspan="${emptyColspan}" class="strategy-empty-cell">No trades.</td></tr>`;
+  }
+  const f = _tradeFmt();
+  return trades.map((trade, idx) => {
+    const isLong   = String(trade.side || "").toUpperCase() === "LONG";
+    const side     = isLong ? "LONG" : "SHORT";
+    const sideCls  = isLong ? "st-side-long" : "st-side-short";
+    const qty      = trade.qty ?? trade.size ?? trade.Size ?? 0;
+    const entryP   = trade.entry ?? trade.entry_price ?? trade.EntryPrice;
+    const exitP    = trade.exit  ?? trade.exit_price  ?? trade.ExitPrice;
+    const entryT   = trade.entry_time || trade.entry_date || trade.EntryTime || "";
+    const exitT    = trade.exit_time  || trade.exit_date  || trade.ExitTime  || "";
+    const pnl      = trade.pnl ?? trade.PnL;
+    const pnlPct   = trade.pnl_pct ?? trade.ReturnPct;
+    const pnlNum   = Number(pnl);
+    const pnlClass = Number.isFinite(pnlNum) ? (pnlNum >= 0 ? "st-pnl-pos" : "st-pnl-neg") : "";
+    const bars     = trade.bars_held ?? trade.Duration ?? trade.Bars ?? "--";
+    const rowCls   = idx % 2 === 0 ? "st-trade-group-even" : "st-trade-group-odd";
+    return `<tr class="${rowCls}">
+      <td><span class="st-side-badge ${sideCls}">${side}</span></td>
+      <td class="st-trade-date">${formatStrategyDateString(entryT) || "--"}</td>
+      <td class="st-num">${f.price(entryP)}</td>
+      <td class="st-trade-date">${formatStrategyDateString(exitT) || "--"}</td>
+      <td class="st-num">${f.price(exitP)}</td>
+      <td class="st-num">
+        <span class="st-qty">${qty}</span>
+        <span class="st-amount">${f.amount(qty, entryP)}</span>
+      </td>
+      <td class="st-num st-pnl-cell ${pnlClass}">
+        <span class="st-pnl-money">${f.money(pnl)}</span>
+        <span class="st-pnl-pct">${f.pct(pnlPct)}</span>
+      </td>
+      <td class="st-num">${f.days(trade)}</td>
+      <td class="st-num">${bars}</td>
+    </tr>`;
+  }).join("");
+}
+
 function renderStrategyTrades(trades) {
   const body = $("strategy-trades-body");
   if (!body) return;
-  if (!trades.length) {
-    body.innerHTML = '<tr><td colspan="10" class="strategy-empty-cell">Run a backtest to populate trades.</td></tr>';
-    return;
-  }
-
-  body.innerHTML = "";
-  trades.forEach((trade, index) => {
-    const row = document.createElement("tr");
-    const side = trade.side || (Number(trade.Size || trade.size || 0) < 0 ? "Short" : "Long");
-    row.innerHTML = `
-      <td>${index + 1}</td>
-      <td>${side}</td>
-      <td>${formatStrategyDateString(trade.entry_date || trade.entry_time || trade.date || trade.EntryTime || "--")}</td>
-      <td>${trade.entry_price || trade.entry || trade.EntryPrice || "--"}</td>
-      <td>${formatStrategyDateString(trade.exit_date || trade.exit_time || trade.ExitTime || "--")}</td>
-      <td>${trade.exit_price || trade.exit || trade.ExitPrice || "--"}</td>
-      <td>${trade.size || trade.qty || trade.Size || "--"}</td>
-      <td>${trade.pnl || trade.PnL || "--"}</td>
-      <td>${trade.pnl_pct || trade.ReturnPct || "--"}</td>
-      <td>${trade.bars_held || trade.Bars || "--"}</td>
-    `;
-    body.appendChild(row);
-  });
+  body.innerHTML = buildTradesTableHTML(trades, 9);
 }
+
 
 function _appendStrategyLog(message) {
   const targets = ["strategy-logs"];
@@ -2458,24 +2513,19 @@ function renderSelectedOptimizationRun(selection) {
     </div>
     <div class="strategy-mini-equity"><canvas id="strategy-selected-equity-chart"></canvas></div>
     <div class="strategy-table-shell strategy-detail-trades">
-      <table class="strategy-results-table">
-        <thead><tr><th>Side</th><th>Entry</th><th>Exit</th><th>P&amp;L</th></tr></thead>
-        <tbody>
-          ${trades.length ? trades.map((trade) => {
-      const pnlStr = String(trade.pnl || trade.PnL || trade.profit || "");
-      const pnlNum = Number(pnlStr.replace(/[^0-9.-]/g, ''));
-      let pnlClass = "";
-      if (!isNaN(pnlNum) && pnlNum !== 0 && pnlStr.trim() !== "") {
-        pnlClass = pnlNum > 0 ? "metric-positive" : "metric-negative";
-      } else if (pnlStr.includes("+") || pnlNum > 0) pnlClass = "metric-positive";
-      else if (pnlStr.includes("-") || pnlNum < 0) pnlClass = "metric-negative";
-
-      const sideStr = String(trade.side || "").toUpperCase();
-      const sideClass = (sideStr === "BUY" || sideStr === "LONG") ? "metric-positive" : ((sideStr === "SELL" || sideStr === "SHORT") ? "metric-negative" : "");
-
-      return `<tr><td class="${sideClass}">${escapeStrategyHtml(trade.side || "--")}</td><td>${escapeStrategyHtml(trade.entry_price || trade.entry || "--")}</td><td>${escapeStrategyHtml(trade.exit_price || trade.exit || "--")}</td><td class="${pnlClass}">${escapeStrategyHtml(trade.pnl || trade.profit || trade.PnL || "--")}</td></tr>`;
-    }).join("") : '<tr><td colspan="4" class="strategy-empty-cell">No trade log returned.</td></tr>'}
-        </tbody>
+      <table class="strategy-results-table strategy-trades-table">
+        <thead><tr>
+          <th>Side</th>
+          <th>Entry</th>
+          <th class="st-th-right">Entry Price</th>
+          <th>Exit</th>
+          <th class="st-th-right">Exit Price</th>
+          <th class="st-th-right">Size</th>
+          <th class="st-th-right">Net P&amp;L</th>
+          <th class="st-th-right">Days</th>
+          <th class="st-th-right">Bars</th>
+        </tr></thead>
+        <tbody>${buildTradesTableHTML(trades, 9)}</tbody>
       </table>
     </div>
     <button id="strategy-apply-optimized-btn" type="button" class="primary-button strategy-apply-button">Apply to Backtest</button>

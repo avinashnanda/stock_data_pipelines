@@ -585,6 +585,26 @@ def extract_backtesting_trades(stats: Any, data: pd.DataFrame) -> list[dict[str,
         entry_time = row.get("EntryTime")
         exit_time = row.get("ExitTime")
 
+        # bars_held: use ExitBar - EntryBar (both are plain integers in backtesting.py)
+        try:
+            entry_bar = row.get("EntryBar")
+            exit_bar  = row.get("ExitBar")
+            bars_held = int(exit_bar - entry_bar) if entry_bar is not None and exit_bar is not None else None
+        except (TypeError, ValueError):
+            bars_held = None
+
+        # days_held: Duration is a pd.Timedelta — use .days, not int()
+        days_held = None
+        try:
+            duration = row.get("Duration")
+            if duration is not None and hasattr(duration, "days"):
+                days_held = int(duration.days)
+            elif entry_time is not None and exit_time is not None:
+                delta = pd.Timestamp(exit_time) - pd.Timestamp(entry_time)
+                days_held = int(delta.days)
+        except Exception:
+            pass
+
         trade = {
             "date": format_time_value(exit_time),
             "side": side,
@@ -595,6 +615,8 @@ def extract_backtesting_trades(stats: Any, data: pd.DataFrame) -> list[dict[str,
             "pnl_pct": round(pnl_pct, 4),
             "entry_time": format_time_value(entry_time),
             "exit_time": format_time_value(exit_time),
+            "bars_held": bars_held,
+            "days_held": days_held,
         }
 
         # Calculate MFE / MAE

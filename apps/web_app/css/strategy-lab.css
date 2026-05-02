@@ -555,6 +555,7 @@
   min-height: 0;
   overflow: auto;
   padding: 14px;
+  padding-bottom: 16px;
 }
 
 .strategy-form-grid {
@@ -826,6 +827,8 @@
 
 .strategy-table-shell {
   overflow: auto;
+  /* Extra bottom padding so the last table row border is never clipped */
+  padding-bottom: 2px;
 }
 
 .strategy-results-table {
@@ -840,6 +843,81 @@
   padding: 10px 8px;
   font-size: 13px;
 }
+
+/* ── Trades table ─────────────────────────────────────────────────────── */
+/* ── Trades table — fully bordered ──────────────────────────────────── */
+.strategy-trades-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+
+.strategy-trades-table th,
+.strategy-trades-table td {
+  border: 1px solid var(--panel-border);
+  padding: 7px 9px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.strategy-trades-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  /* Subtle tinted header background */
+  background: rgba(99, 102, 241, 0.08);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+:root[data-theme="light"] .strategy-trades-table th {
+  background: rgba(99, 102, 241, 0.07);
+}
+
+/* Alternating row backgrounds */
+.st-trade-group-even { background: rgba(255, 255, 255, 0.02); }
+.st-trade-group-odd  { background: transparent; }
+
+/* All columns left-aligned; tabular nums for consistency */
+.st-th-right,
+.st-num {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Date column — slightly muted */
+.st-trade-date {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Side badge: LONG = blue, SHORT = red */
+.st-side-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.st-side-long  { background: rgba(41, 98, 255, 0.18); color: #5b8fff; }
+.st-side-short { background: rgba(242, 54, 69, 0.18);  color: #f87171; }
+
+/* Size cell: qty on top, ₹ amount below */
+.st-qty    { display: block; }
+.st-amount { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+/* P&L cell: money bold on top, % below */
+.st-pnl-money { display: block; font-weight: 600; }
+.st-pnl-pct   { display: block; font-size: 11px; margin-top: 1px; opacity: 0.85; }
+.st-pnl-pos .st-pnl-money,
+.st-pnl-pos .st-pnl-pct { color: #10b981; }
+.st-pnl-neg .st-pnl-money,
+.st-pnl-neg .st-pnl-pct { color: #f23645; }
+
 
 .strategy-chart-canvas-wrap {
   position: relative;
@@ -2469,6 +2547,8 @@
   border-bottom: 1px solid var(--opt-border);
   border-radius: 0;
   padding: 10px 13px;
+  /* Ensure table bottom border is visible */
+  overflow: visible;
 }
 
 .strategy-mini-equity {
