@@ -178,8 +178,6 @@
                   <button id="strategy-tab-editor" type="button" class="strategy-tab active"
                     data-strategy-tab="editor">Code
                     Editor</button>
-                  <button id="strategy-tab-params" type="button" class="strategy-tab"
-                    data-strategy-tab="params">Parameters</button>
                   <button id="strategy-tab-logs" type="button" class="strategy-tab"
                     data-strategy-tab="logs">Logs</button>
                   <button id="strategy-tab-live" type="button" class="strategy-tab" data-strategy-tab="live">Live
@@ -240,30 +238,7 @@
                   </div>
                 </div>
 
-                <div id="strategy-pane-params" class="strategy-tab-pane hidden">
-                  <div class="strategy-form-field">
-                    <label for="strategy-params-json">Parameter Schema / Default Params (JSON)</label>
-                    <textarea id="strategy-params-json" rows="14" class="strategy-json-input"
-                      spellcheck="false">{&#10;  "ema_fast": 10,&#10;  "ema_slow": 50&#10;}</textarea>
-                  </div>
-                  <div class="strategy-form-grid">
-                    <div class="strategy-form-field">
-                      <label for="strategy-opt-objective">Optimization Objective</label>
-                      <select id="strategy-opt-objective">
-                        <option value="sharpe" selected>Sharpe</option>
-                        <option value="return_pct">Return %</option>
-                        <option value="sortino">Sortino</option>
-                        <option value="profit_factor">Profit Factor</option>
-                        <option value="custom">Custom Weighted Formula</option>
-                      </select>
-                    </div>
-                    <div class="strategy-form-field">
-                      <label for="strategy-opt-grid-json">Optimization Grid (JSON)</label>
-                      <textarea id="strategy-opt-grid-json" rows="9" class="strategy-json-input"
-                        spellcheck="false">{&#10;  "fast_length": {"start": 5, "end": 20, "step": 1},&#10;  "slow_length": {"start": 30, "end": 100, "step": 5},&#10;  "_constraints": ["fast_length < slow_length"]&#10;}</textarea>
-                    </div>
-                  </div>
-                </div>
+
 
                 <div id="strategy-pane-logs" class="strategy-tab-pane hidden">
                   <pre id="strategy-logs" class="strategy-log-output">Strategy logs will appear here.</pre>
