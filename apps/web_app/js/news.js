@@ -387,7 +387,7 @@ async function updateRedList(announcements) {
 
 /* ── Sidebar: Recent Arrivals ───────────────────────────────────────────── */
 
-function renderRecentArrivals(announcements) {
+async function renderRecentArrivals(announcements) {
   const feed = $('recent-arrivals-feed');
   if (!feed) return;
   // Don't clear immediately to avoid flicker. Clearing happens right before appending.
@@ -395,7 +395,7 @@ function renderRecentArrivals(announcements) {
   // Get active watchlist symbols
   let watchlistSymbols = [];
   try {
-    const state = getWatchlistsState();
+    const state = await getWatchlistsState();
     const activeList = state.lists[state.activeId];
     if (activeList) {
       watchlistSymbols = activeList.symbols.map(s => s.replace('NSE:', ''));

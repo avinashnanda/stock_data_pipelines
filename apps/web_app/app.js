@@ -138,7 +138,7 @@ function buildWidget(options = {}) {
     theme: currentTheme,
     datafeed: window.createAppDatafeed(currentSourceId, setStatus),
     disabled_features: ["use_localstorage_for_settings"],
-    enabled_features: ["study_templates", "header_symbol_search", "header_resolutions"],
+    enabled_features: ["header_symbol_search", "header_resolutions"],
     fullscreen: false,
     timezone: "Asia/Kolkata",
     favorites: {
