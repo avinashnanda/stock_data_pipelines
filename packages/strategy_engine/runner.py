@@ -585,23 +585,27 @@ def extract_backtesting_trades(stats: Any, data: pd.DataFrame) -> list[dict[str,
         entry_time = row.get("EntryTime")
         exit_time = row.get("ExitTime")
 
-        # bars_held: use ExitBar - EntryBar (both are plain integers in backtesting.py)
+        # bars_held: use ExitBar - EntryBar (reliable integer indices in backtesting.py)
         try:
-            entry_bar = row.get("EntryBar")
-            exit_bar  = row.get("ExitBar")
-            bars_held = int(exit_bar - entry_bar) if entry_bar is not None and exit_bar is not None else None
-        except (TypeError, ValueError):
+            eb = row.get("EntryBar")
+            xb = row.get("ExitBar")
+            if eb is not None and xb is not None and pd.notna(eb) and pd.notna(xb):
+                bars_held = int(float(xb) - float(eb))
+            else:
+                bars_held = None
+        except Exception:
             bars_held = None
 
-        # days_held: Duration is a pd.Timedelta — use .days, not int()
+        # days_held: Duration is a pd.Timedelta — use .days attribute
         days_held = None
         try:
-            duration = row.get("Duration")
-            if duration is not None and hasattr(duration, "days"):
-                days_held = int(duration.days)
+            dur = row.get("Duration")
+            if pd.notna(dur) and hasattr(dur, "days"):
+                days_held = int(dur.days)
             elif entry_time is not None and exit_time is not None:
-                delta = pd.Timestamp(exit_time) - pd.Timestamp(entry_time)
-                days_held = int(delta.days)
+                d1 = pd.Timestamp(entry_time)
+                d2 = pd.Timestamp(exit_time)
+                days_held = int((d2 - d1).days)
         except Exception:
             pass
 

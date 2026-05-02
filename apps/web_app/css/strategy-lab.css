@@ -827,8 +827,8 @@
 
 .strategy-table-shell {
   overflow: auto;
-  /* Extra bottom padding so the last table row border is never clipped */
-  padding-bottom: 2px;
+  /* More generous bottom padding to prevent clipping of the last row border */
+  padding-bottom: 15px;
 }
 
 .strategy-results-table {
@@ -850,6 +850,9 @@
   border-collapse: collapse;
   width: 100%;
   font-size: 12px;
+  /* Explicit bottom border and margin to ensure it stays visible inside the shell */
+  border-bottom: 1px solid var(--panel-border) !important;
+  margin-bottom: 10px;
 }
 
 .strategy-trades-table th,

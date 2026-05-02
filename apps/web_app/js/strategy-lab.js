@@ -1485,9 +1485,8 @@ function _tradeFmt() {
       return Number.isFinite(n) ? formatCompactValue(n) : "--";
     },
     days: (trade) => {
-      // Prefer server-computed days_held; fall back to JS calculation from timestamps
-      if (trade.days_held != null) return trade.days_held;
       try {
+        if (trade.days_held != null && trade.days_held !== "") return trade.days_held;
         const entryT = trade.entry_time || trade.entry_date || trade.EntryTime || "";
         const exitT  = trade.exit_time  || trade.exit_date  || trade.ExitTime  || "";
         if (!entryT || !exitT) return "--";
@@ -2479,7 +2478,7 @@ function renderSelectedOptimizationRun(selection) {
   const { index, run } = selection;
   const metrics = run.metrics || {};
   const paramsText = Object.entries(run.params || {}).map(([key, value]) => `${key}=${value}`).join(" - ");
-  const trades = (run.trades || _strategyLatestOptimizationPayload?.trades || []).slice(-8).reverse();
+  const trades = (run.trades || _strategyLatestOptimizationPayload?.leaderboard?.[0]?.trades || []).slice(-10).reverse();
   const app = document.querySelector(".strategy-opt-app");
   const expanded = app?.classList.contains("detail-expanded");
   panel.className = "strategy-run-detail";
