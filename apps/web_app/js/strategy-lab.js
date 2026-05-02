@@ -468,7 +468,7 @@ function switchStrategyEditorTab(tabId) {
   document.querySelectorAll("[data-strategy-tab]").forEach((button) => {
     button.classList.toggle("active", button.dataset.strategyTab === tabId);
   });
-  ["editor", "logs", "live"].forEach((paneId) => {
+  ["editor", "params", "logs", "live"].forEach((paneId) => {
     $(`strategy-pane-${paneId}`)?.classList.toggle("hidden", paneId !== tabId);
   });
 }
