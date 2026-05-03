@@ -55,9 +55,9 @@ function buildStrategyCompareShell() {
     <aside class="strategy-compare-side">
       <div class="strategy-compare-side-head">
         <strong>Strategies</strong>
-        <button id="strategy-compare-add-current" type="button" class="strategy-opt-btn">+ Add</button>
+        <button id="strategy-compare-add-strategy" type="button" class="strategy-opt-btn">+ Add</button>
       </div>
-      <div class="strategy-compare-side-label">In comparison</div>
+      <div class="strategy-compare-side-label">IN COMPARISON</div>
       <div id="strategy-compare-strategy-list" class="strategy-compare-side-list">${buildStrategyCompareSideList()}</div>
       <button id="strategy-compare-add-backtest" type="button" class="strategy-opt-btn full">+ From Backtest</button>
       <button id="strategy-compare-add-optimizer" type="button" class="strategy-opt-btn full">+ From Optimizer Results</button>
@@ -91,28 +91,27 @@ function buildStrategyCompareShell() {
 }
 
 function buildStrategyCompareSideList() {
-  const items = getCompareAvailableItems();
+  const items = getCompareAvailableItems().filter(item => _strategyCompareSelectedIds.has(item.id));
   return items.map((item) => {
-    const checked = _strategyCompareSelectedIds.has(item.id);
     const metric = item.summary?.returnPct ?? item.metrics?.return_pct ?? item.result?.metrics?.return_pct;
     return `
-      <label class="strategy-compare-side-item ${checked ? "active" : ""}">
-        <input type="checkbox" value="${escapeStrategyHtml(item.id)}" ${checked ? "checked" : ""}>
-        <span class="strategy-compare-dot" style="background:${getCompareColor(item.id)}"></span>
+      <div class="strategy-compare-side-item active">
+        <label style="position:relative; display:flex; cursor:pointer;" title="Change color">
+          <span class="strategy-compare-dot" style="background:${getCompareColor(item.id)}"></span>
+          <input class="strategy-compare-side-color" type="color" value="${getCompareColor(item.id)}" data-color-strategy="${escapeStrategyHtml(item.id)}" style="opacity:0; position:absolute; width:100%; height:100%; cursor:pointer;">
+        </label>
         <span class="strategy-compare-side-name">${escapeStrategyHtml(item.name)}</span>
-        <input class="strategy-compare-side-color" type="color" value="${getCompareColor(item.id)}" data-color-strategy="${escapeStrategyHtml(item.id)}">
         <em class="${Number(metric) >= 0 ? "metric-positive" : "metric-negative"}">${Number.isFinite(Number(metric)) ? `${Number(metric) >= 0 ? "+" : ""}${num(metric)}%` : "--"}</em>
-      </label>
+        <button type="button" class="strategy-compare-remove-btn" data-remove-strategy="${escapeStrategyHtml(item.id)}" style="background:transparent; border:none; color:inherit; cursor:pointer; font-size:16px; line-height:1; padding:0 4px; opacity:0.6;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">×</button>
+      </div>
     `;
-  }).join("") || '<div class="strategy-empty-state">Run or load a backtest to compare strategies.</div>';
+  }).join("") || '<div class="strategy-empty-state">No strategies selected for comparison.</div>';
 }
 
 function bindStrategyCompareEvents() {
-  document.querySelectorAll("#strategy-compare-strategy-list input[type='checkbox']").forEach((input) => {
-    input.addEventListener("change", () => {
-      if (input.checked) _strategyCompareSelectedIds.add(input.value);
-      else _strategyCompareSelectedIds.delete(input.value);
-      hydrateSelectedCompareRuns();
+  document.querySelectorAll(".strategy-compare-remove-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      _strategyCompareSelectedIds.delete(btn.dataset.removeStrategy);
       renderStrategyCompareLab();
     });
   });
@@ -128,7 +127,7 @@ function bindStrategyCompareEvents() {
       renderStrategyCompareLab();
     });
   });
-  $("strategy-compare-add-current")?.addEventListener("click", addCurrentBacktestToCompare);
+  $("strategy-compare-add-strategy")?.addEventListener("click", renderStrategyPicker);
   $("strategy-compare-add-backtest")?.addEventListener("click", renderBacktestPicker);
   $("strategy-compare-add-optimizer")?.addEventListener("click", renderOptimizerRunPicker);
   $("strategy-compare-export-csv")?.addEventListener("click", exportCompareCsv);
@@ -455,6 +454,29 @@ function addCurrentBacktestToCompare() {
   renderStrategyCompareLab();
 }
 
+function renderStrategyPicker() {
+  const picker = $("strategy-compare-picker");
+  if (!picker) return;
+  const items = getCompareAvailableItems().filter((item) => item.type === "strategy");
+  picker.classList.toggle("hidden");
+  picker.innerHTML = `<div class="strategy-compare-picker-head"><strong>Saved Strategies</strong><button id="strategy-compare-picker-close" type="button" class="icon-button">x</button></div>
+    <div class="strategy-compare-picker-grid">
+      <button type="button" id="strategy-compare-pick-current" style="color:var(--accent);">+ Add Current Backtest</button>
+      ${items.map((run) => `<button type="button" data-pick-run="${escapeStrategyHtml(run.id)}">${escapeStrategyHtml(run.name)} / ${pct(run.summary.returnPct)}</button>`).join("")}
+    </div>`;
+  $("strategy-compare-picker-close")?.addEventListener("click", () => picker.classList.add("hidden"));
+  $("strategy-compare-pick-current")?.addEventListener("click", () => {
+    addCurrentBacktestToCompare();
+    picker.classList.add("hidden");
+  });
+  picker.querySelectorAll("[data-pick-run]").forEach((button) => {
+    button.addEventListener("click", () => {
+      _strategyCompareSelectedIds.add(button.dataset.pickRun);
+      renderStrategyCompareLab();
+    });
+  });
+}
+
 function renderBacktestPicker() {
   const picker = $("strategy-compare-picker");
   if (!picker) return;
@@ -542,7 +564,7 @@ function normalizeEquity(points, metrics = {}) {
     const equity = Number(p.equity ?? p.Equity ?? p.value ?? p.portfolio_value);
     const buyHold = Number(p.buy_hold ?? p.buyHold ?? p.benchmark ?? p.BuyHold);
     return {
-      time: String(p.time ?? p.date ?? p.Date ?? i),
+      time: formatCompareDate(p.time ?? p.date ?? p.Date ?? i),
       equity: Number.isFinite(equity) ? equity : null,
       buy_hold: Number.isFinite(buyHold) ? buyHold : null,
     };
