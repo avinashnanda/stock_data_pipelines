@@ -58,6 +58,9 @@ function initStrategyLab() {
     }
     initOptimizerLeftResize();
     initMaximizeButtons();
+    if (typeof initStrategyCompareLab === "function") {
+      initStrategyCompareLab();
+    }
     if (typeof initStrategyEditor === "function") {
       initStrategyEditor().catch((error) => console.error(error));
     }
@@ -475,17 +478,24 @@ function switchStrategyEditorTab(tabId) {
 
 function switchStrategyPrimaryTab(tabId) {
   _strategyPrimaryTab = tabId === "optimize" ? "optimize" : "backtest";
+  if (tabId === "compare") _strategyPrimaryTab = "compare";
   document.querySelectorAll("[data-strategy-primary-tab]").forEach((button) => {
     button.classList.toggle("active", button.dataset.strategyPrimaryTab === _strategyPrimaryTab);
   });
   $("strategy-backtest-tab-pane")?.classList.toggle("hidden", _strategyPrimaryTab !== "backtest");
   $("strategy-optimize-tab-pane")?.classList.toggle("hidden", _strategyPrimaryTab !== "optimize");
+  $("strategy-compare-tab-pane")?.classList.toggle("hidden", _strategyPrimaryTab !== "compare");
   document.querySelector(".strategy-lab")?.classList.toggle("optimize-active", _strategyPrimaryTab === "optimize");
+  document.querySelector(".strategy-lab")?.classList.toggle("compare-active", _strategyPrimaryTab === "compare");
   renderOptimizeSidebar();
   if (_strategyPrimaryTab === "optimize") {
     renderOptimizeStrategySelector(_strategyListCache);
     refreshStrategyList().catch((error) => _appendStrategyLog(`Strategy refresh failed: ${error.message}`));
     renderStrategyOptimizationCharts(_strategyLatestOptimizationPayload);
+  }
+  if (_strategyPrimaryTab === "compare" && typeof renderStrategyCompareLab === "function") {
+    renderStrategyCompareLab();
+    refreshStrategyList().then(() => renderStrategyCompareLab()).catch((error) => _appendStrategyLog(`Strategy refresh failed: ${error.message}`));
   }
   window.dispatchEvent(new Event("resize"));
 }
@@ -831,6 +841,7 @@ async function refreshStrategyList() {
   _strategyListCache = items;
   renderStrategyList(items);
   renderOptimizeStrategySelector(items);
+  if (typeof renderStrategyCompareLab === "function") renderStrategyCompareLab();
   updateSidebarStats();
 
   const remembered = window.localStorage.getItem("strategy_lab_last_strategy_id");
@@ -843,6 +854,7 @@ async function refreshBacktestHistory() {
   const items = await window.strategyStorageApi.listBacktests();
   _strategyBacktestListCache = items;
   renderBacktestHistory(items);
+  if (typeof renderStrategyCompareLab === "function") renderStrategyCompareLab();
   updateScannerSummary();
   updateSidebarStats();
 }

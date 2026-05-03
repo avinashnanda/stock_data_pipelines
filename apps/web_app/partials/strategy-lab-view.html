@@ -13,6 +13,7 @@
               <button type="button" class="strategy-primary-tab active"
                 data-strategy-primary-tab="backtest">Backtest</button>
               <button type="button" class="strategy-primary-tab" data-strategy-primary-tab="optimize">Optimize</button>
+              <button type="button" class="strategy-primary-tab" data-strategy-primary-tab="compare">Compare</button>
             </div>
             <div class="strategy-toolbar-symbol">
               <span class="strategy-toolbar-label">Symbol</span>
@@ -426,6 +427,7 @@
               <button type="button" class="strategy-primary-tab" data-strategy-primary-tab="backtest">Backtest</button>
               <button type="button" class="strategy-primary-tab active"
                 data-strategy-primary-tab="optimize">Optimize</button>
+              <button type="button" class="strategy-primary-tab" data-strategy-primary-tab="compare">Compare</button>
             </div>
             <span id="strategy-opt-runs-badge" class="strategy-opt-badge purple">512 runs</span>
             <span id="strategy-opt-loaded-chip" class="strategy-opt-badge green">NSE:RELIANCE · Simple SMA Cross</span>
@@ -686,6 +688,24 @@
               <div id="strategy-selected-run-detail" class="strategy-empty-state">Select a run to inspect details.</div>
             </aside>
           </div>
+        </div>
+      </div>
+
+      <div id="strategy-compare-tab-pane" class="strategy-primary-tab-pane hidden">
+        <div class="strategy-compare-app">
+          <div class="strategy-opt-topbar strategy-compare-topbar">
+            <div class="strategy-primary-tabs" role="tablist" aria-label="QuantLab mode"
+              style="background:transparent; border:none; padding:0; margin-right:16px;">
+              <button type="button" class="strategy-primary-tab" data-strategy-primary-tab="backtest">Backtest</button>
+              <button type="button" class="strategy-primary-tab" data-strategy-primary-tab="optimize">Optimize</button>
+              <button type="button" class="strategy-primary-tab active" data-strategy-primary-tab="compare">Compare</button>
+            </div>
+            <span id="strategy-compare-count-badge" class="strategy-opt-badge green">0 selected</span>
+            <span class="strategy-opt-badge purple">Multi-strategy analytics</span>
+            <div class="strategy-opt-spacer"></div>
+            <button id="strategy-compare-refresh-btn" type="button" class="strategy-opt-btn">Refresh</button>
+          </div>
+          <div id="strategy-compare-root" class="strategy-compare-root"></div>
         </div>
       </div>
     </section>

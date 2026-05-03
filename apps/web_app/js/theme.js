@@ -14,6 +14,9 @@ async function toggleTheme() {
   if (typeof syncStrategyEditorTheme === "function") {
     syncStrategyEditorTheme(currentTheme);
   }
+  if (currentView === "strategylab" && typeof renderStrategyCompareLab === "function") {
+    window.setTimeout(() => renderStrategyCompareLab(), 0);
+  }
   if (widget) {
     await widget.changeTheme(currentTheme);
   }
