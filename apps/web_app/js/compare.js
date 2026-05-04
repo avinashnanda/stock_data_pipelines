@@ -203,11 +203,13 @@ function renderComparePerformance(content, strategies) {
       ${chartCard("cmp-annual-bars", "Year-by-year return breakdown")}
       ${chartCard("cmp-profit-factor", "Profit factor and expectancy")}
     </div>
+    ${heatmapShell("cmp-annual-heatmap", "Annual returns heatmap")}
     ${tableShell("cmp-performance-table", "Return and trade statistics")}
   `;
   const years = unionLabels(strategies.map((s) => Object.keys(s.annual)));
   groupedBar("cmp-annual-bars", years, strategies, (s) => years.map((y) => s.annual[y] ?? null));
   groupedBar("cmp-profit-factor", ["Profit Factor", "Expectancy", "Avg Win/Loss"], strategies, (s) => [s.metrics.profitFactor, s.metrics.expectancy, s.metrics.winLossRatio]);
+  renderHeatmap("cmp-annual-heatmap", strategies.map((s) => s.name), years, (row, col) => strategies[row].annual[years[col]]);
   renderSimpleTable("cmp-performance-table", ["Strategy", "Total Return", "CAGR", "Trades", "Win Rate", "Profit Factor", "Expectancy", "Avg W/L"], strategies.map((s) => [s.name, pct(s.metrics.totalReturn), pct(s.metrics.cagr), s.metrics.totalTrades, pct(s.metrics.winRate), num(s.metrics.profitFactor), money(s.metrics.expectancy), num(s.metrics.winLossRatio)]));
 }
 
@@ -235,14 +237,17 @@ function renderCompareRisk(content, strategies) {
 
 function renderCompareDistribution(content, strategies) {
   content.innerHTML = `
-    ${chartCard("cmp-hist", "Return distribution", "wide")}
-    ${heatmapShell("cmp-annual-heatmap", "Annual returns heatmap")}
+    <div class="strategy-compare-grid two">
+      ${chartCard("cmp-hist", "Return distribution")}
+      ${chartCard("cmp-pnl-hist", "Trade P&L distribution")}
+    </div>
     ${tableShell("cmp-skew-table", "Skewness & Kurtosis")}
   `;
   const buckets = [-5, -3, -1, 0, 1, 3, 5];
   groupedBar("cmp-hist", buckets.map((b) => `${b}%`), strategies, (s) => buckets.map((b, i) => s.returnsPct.filter((r) => r >= b && r < (buckets[i + 1] ?? Infinity)).length), { xTitle: "Return Bin", yTitle: "Count" });
-  const years = unionLabels(strategies.map((s) => Object.keys(s.annual)));
-  renderHeatmap("cmp-annual-heatmap", strategies.map((s) => s.name), years, (row, col) => strategies[row].annual[years[col]]);
+  const allTrades = strategies.flatMap((s) => s.trades);
+  const pnlBuckets = buildHistogramBuckets(allTrades.map((t) => t.returnPct), 8);
+  groupedBar("cmp-pnl-hist", pnlBuckets.map((b) => `${num(b)}%`), strategies, (s) => bucketCounts(s.trades.map((t) => t.returnPct), pnlBuckets), { xTitle: "Trade P&L %", yTitle: "Count" });
   renderSimpleTable("cmp-skew-table", ["Strategy", "Skewness", "Kurtosis", "Tail Ratio", "Omega"], strategies.map((s) => [s.name, num(s.metrics.skewness), num(s.metrics.kurtosis), num(s.metrics.tailRatio), num(s.metrics.omega)]));
 }
 
@@ -314,7 +319,6 @@ function renderCompareTrades(content, strategies) {
     </section>
     <div class="strategy-compare-grid two">
       ${chartCard("cmp-mfe-mae", "MFE vs MAE")}
-      ${chartCard("cmp-pnl-hist", "P&L distribution")}
       ${chartCard("cmp-eff", "Entry & exit efficiency")}
       ${heatmapShell("cmp-dow", "Day-of-week performance")}
       ${heatmapShell("cmp-session", "Session performance")}
@@ -327,8 +331,6 @@ function renderCompareTrades(content, strategies) {
   const trades = getFilteredCompareTrades(strategies);
   renderTradeLog(trades);
   chart("cmp-mfe-mae", { type: "scatter", data: { datasets: strategies.map((s) => ({ label: s.name, data: trades.filter((t) => t.strategyId === s.id).map((t) => ({ x: t.maePct, y: t.mfePct })), backgroundColor: getCompareColor(s.id), pointRadius: 4 })) }, options: baseChartOptions({ xTitle: "MAE %", yTitle: "MFE %" }) });
-  const buckets = buildHistogramBuckets(trades.map((t) => t.returnPct), 8);
-  groupedBar("cmp-pnl-hist", buckets.map((b) => `${num(b)}%`), strategies, (s) => bucketCounts(trades.filter((t) => t.strategyId === s.id).map((t) => t.returnPct), buckets));
   groupedBar("cmp-eff", ["Entry", "Exit"], strategies, (s) => [s.metrics.entryEfficiency, s.metrics.exitEfficiency]);
   renderHeatmap("cmp-dow", strategies.map((s) => s.name), ["Mon", "Tue", "Wed", "Thu", "Fri"], (r, c) => avg(strategies[r].trades.filter((t) => new Date(t.entryDate).getDay() === c + 1).map((t) => t.pnl)));
   renderHeatmap("cmp-session", strategies.map((s) => s.name), ["Open", "Midday", "Close"], (r, c) => avg(strategies[r].trades.filter((t, i) => getTradeSessionBucket(t, i) === c).map((t) => t.pnl)));
@@ -759,13 +761,68 @@ function computeBenchmarkRelationship(returns, benchmarkReturns) {
 
 function renderSummaryMetricsTable(id, strategies) {
   const rows = [
-    ["Total Return %", "totalReturn"], ["CAGR", "cagr"], ["Volatility", "volatility"], ["Max Drawdown", "maxDrawdown"],
-    ["Sharpe", "sharpe"], ["Sortino", "sortino"], ["Calmar", "calmar"], ["Omega", "omega"], ["Tail Ratio", "tailRatio"],
-    ["Win Rate", "winRate"], ["Profit Factor", "profitFactor"], ["Expectancy", "expectancy"], ["Avg Trade", "avgTrade"],
-    ["Best Trade", "bestTrade"], ["Worst Trade", "worstTrade"], ["Total Trades", "totalTrades"], ["Avg Duration", "avgDuration"],
-    ["Beta", "beta"], ["Alpha", "alpha"], ["Correlation to Benchmark", "correlation"],
+    ["Total Return %", "totalReturn", 1], ["CAGR", "cagr", 1], ["Volatility", "volatility", -1], ["Max Drawdown", "maxDrawdown", 1],
+    ["Sharpe", "sharpe", 1], ["Sortino", "sortino", 1], ["Calmar", "calmar", 1], ["Omega", "omega", 1], ["Tail Ratio", "tailRatio", 1],
+    ["Win Rate", "winRate", 1], ["Profit Factor", "profitFactor", 1], ["Expectancy", "expectancy", 1], ["Avg Trade", "avgTrade", 1],
+    ["Best Trade", "bestTrade", 1], ["Worst Trade", "worstTrade", 1], ["Total Trades", "totalTrades", 1], ["Avg Duration", "avgDuration", -1],
+    ["Beta", "beta", 0], ["Alpha", "alpha", 1], ["Correlation to Benchmark", "correlation", 0],
   ];
-  renderSimpleTable(id, ["Metric", ...strategies.map((s) => s.name)], rows.map(([label, key]) => [label, ...strategies.map((s) => formatCompareMetric(key, s.metrics[key]))]));
+
+  const headers = ["Metric", ...strategies.map((s) => s.name), "Winner"];
+  
+  const tableRows = rows.map(([label, key, direction]) => {
+    const rawValues = strategies.map(s => s.metrics[key]);
+    const numericValues = rawValues.map(v => Number.parseFloat(v)).filter(v => Number.isFinite(v));
+    
+    let bestVal = null;
+    let worstVal = null;
+    let winnerName = "--";
+
+    if (direction !== 0 && numericValues.length > 0) {
+      bestVal = direction === 1 ? Math.max(...numericValues) : Math.min(...numericValues);
+      worstVal = direction === 1 ? Math.min(...numericValues) : Math.max(...numericValues);
+      
+      const winners = strategies.filter(s => {
+        const v = Number.parseFloat(s.metrics[key]);
+        return Number.isFinite(v) && v === bestVal;
+      });
+      if (winners.length > 0 && winners.length < strategies.length) {
+        winnerName = winners.map(w => w.name).join(", ");
+      } else if (winners.length === strategies.length && strategies.length > 1) {
+        winnerName = "Tie";
+      } else if (winners.length === 1) {
+        winnerName = winners[0].name;
+      }
+    }
+
+    const cells = [
+      `<td>${escapeStrategyHtml(label)}</td>`
+    ];
+
+    strategies.forEach(s => {
+      const val = Number.parseFloat(s.metrics[key]);
+      const formatted = formatCompareMetric(key, s.metrics[key]);
+      let style = "";
+      if (direction !== 0 && Number.isFinite(val) && bestVal !== worstVal) {
+        if (val === bestVal) {
+          style = "color: #10b981; font-weight: 500;";
+        } else if (val === worstVal) {
+          style = "color: #ef4444; font-weight: 500;";
+        } else {
+          style = "color: #f59e0b; font-weight: 500;";
+        }
+      }
+      cells.push(`<td style="${style}">${escapeStrategyHtml(formatted)}</td>`);
+    });
+
+    cells.push(`<td><strong>${escapeStrategyHtml(winnerName)}</strong></td>`);
+
+    return `<tr>${cells.join("")}</tr>`;
+  });
+
+  const node = $(id);
+  if (!node) return;
+  node.innerHTML = `<table class="strategy-results-table"><thead><tr>${headers.map((h) => `<th>${escapeStrategyHtml(h)}</th>`).join("")}</tr></thead><tbody>${tableRows.join("")}</tbody></table>`;
 }
 
 function renderSimpleTable(id, headers, rows) {
