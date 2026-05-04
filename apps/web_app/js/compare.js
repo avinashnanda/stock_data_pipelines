@@ -173,11 +173,11 @@ function renderCompareOverview(content, strategies) {
   content.innerHTML = `
     <section class="strategy-compare-section-title"><span>Equity Curves</span></section>
     ${chartCard("cmp-equity", "Cumulative returns - all strategies", "wide")}
-    <div class="strategy-compare-grid two">
+    <div class="strategy-compare-grid three">
       ${chartCard("cmp-risk-return", "Return vs Risk scatter")}
       ${chartCard("cmp-bars", "Metric ranking")}
+      ${chartCard("cmp-radar", "Risk-adjusted radar")}
     </div>
-    ${tableShell("cmp-summary-table", "Summary metrics")}
   `;
   const labels = unionLabels(strategies.map((s) => s.equity.map((p) => p.time)));
   lineChart("cmp-equity", labels, [
@@ -189,8 +189,12 @@ function renderCompareOverview(content, strategies) {
     data: { datasets: strategies.map((s) => ({ label: s.name, data: [{ x: s.metrics.volatility, y: s.metrics.cagr }], backgroundColor: getCompareColor(s.id), pointRadius: 6 })) },
     options: baseChartOptions({ xTitle: "Volatility %", yTitle: "Annualized return %" }),
   });
-  groupedBar("cmp-bars", ["Total Return", "CAGR", "Sharpe", "Max DD", "Win Rate", "Profit Factor"], strategies, (s) => [s.metrics.totalReturn, s.metrics.cagr, s.metrics.sharpe, s.metrics.maxDrawdown, s.metrics.winRate, s.metrics.profitFactor], { indexAxis: "y" });
-  renderSummaryMetricsTable("cmp-summary-table", strategies);
+  groupedBar("cmp-bars", ["Total Return", "CAGR", "Sharpe", "Max DD", "Win Rate", "Profit Factor"], strategies, (s) => [s.metrics.totalReturn, s.metrics.cagr, s.metrics.sharpe, s.metrics.maxDrawdown, s.metrics.winRate, s.metrics.profitFactor], { indexAxis: "y", xTitle: "Value", yTitle: "Metric" });
+  chart("cmp-radar", {
+    type: "radar",
+    data: { labels: ["Sharpe", "Sortino", "Calmar", "Omega", "Tail Ratio"], datasets: strategies.map((s) => ({ label: s.name, data: [s.metrics.sharpe, s.metrics.sortino, s.metrics.calmar, s.metrics.omega, s.metrics.tailRatio], borderColor: getCompareColor(s.id), backgroundColor: hexToRgba(getCompareColor(s.id), 0.12), pointRadius: 2 })) },
+    options: radarOptions(),
+  });
 }
 
 function renderComparePerformance(content, strategies) {
@@ -231,20 +235,12 @@ function renderCompareRisk(content, strategies) {
 
 function renderCompareDistribution(content, strategies) {
   content.innerHTML = `
-    <div class="strategy-compare-grid two">
-      ${chartCard("cmp-radar", "Risk-adjusted radar")}
-      ${chartCard("cmp-hist", "Return distribution")}
-    </div>
+    ${chartCard("cmp-hist", "Return distribution", "wide")}
     ${heatmapShell("cmp-annual-heatmap", "Annual returns heatmap")}
     ${tableShell("cmp-skew-table", "Skewness & Kurtosis")}
   `;
-  chart("cmp-radar", {
-    type: "radar",
-    data: { labels: ["Sharpe", "Sortino", "Calmar", "Omega", "Tail Ratio"], datasets: strategies.map((s) => ({ label: s.name, data: [s.metrics.sharpe, s.metrics.sortino, s.metrics.calmar, s.metrics.omega, s.metrics.tailRatio], borderColor: getCompareColor(s.id), backgroundColor: hexToRgba(getCompareColor(s.id), 0.12), pointRadius: 2 })) },
-    options: radarOptions(),
-  });
   const buckets = [-5, -3, -1, 0, 1, 3, 5];
-  groupedBar("cmp-hist", buckets.map((b) => `${b}%`), strategies, (s) => buckets.map((b, i) => s.returnsPct.filter((r) => r >= b && r < (buckets[i + 1] ?? Infinity)).length));
+  groupedBar("cmp-hist", buckets.map((b) => `${b}%`), strategies, (s) => buckets.map((b, i) => s.returnsPct.filter((r) => r >= b && r < (buckets[i + 1] ?? Infinity)).length), { xTitle: "Return Bin", yTitle: "Count" });
   const years = unionLabels(strategies.map((s) => Object.keys(s.annual)));
   renderHeatmap("cmp-annual-heatmap", strategies.map((s) => s.name), years, (row, col) => strategies[row].annual[years[col]]);
   renderSimpleTable("cmp-skew-table", ["Strategy", "Skewness", "Kurtosis", "Tail Ratio", "Omega"], strategies.map((s) => [s.name, num(s.metrics.skewness), num(s.metrics.kurtosis), num(s.metrics.tailRatio), num(s.metrics.omega)]));
@@ -896,13 +892,19 @@ function lineDataset(label, data, color) {
 }
 
 function baseChartOptions(opts = {}) {
+  const xTicks = { color: "#8b92a8", maxTicksLimit: 9 };
+  if (opts.xMoney) xTicks.callback = (value) => formatCompactValue(Number(value));
+  
+  const yTicks = { color: "#8b92a8" };
+  if (opts.yMoney) yTicks.callback = (value) => formatCompactValue(Number(value));
+
   return {
     maintainAspectRatio: false,
     indexAxis: opts.indexAxis,
     plugins: { legend: { display: true, position: "bottom", labels: { color: "#8b92a8", boxWidth: 10, font: { size: 10 } } } },
     scales: {
-      x: { stacked: opts.stacked, title: opts.xTitle ? { display: true, text: opts.xTitle } : undefined, grid: { color: "rgba(148,163,184,.10)" }, ticks: { color: "#8b92a8", maxTicksLimit: 9 } },
-      y: { stacked: opts.stacked, title: opts.yTitle ? { display: true, text: opts.yTitle } : undefined, grid: { color: "rgba(148,163,184,.10)" }, ticks: { color: "#8b92a8", callback: opts.yMoney ? (value) => formatCompactValue(Number(value)) : undefined } },
+      x: { stacked: opts.stacked, title: opts.xTitle ? { display: true, text: opts.xTitle } : undefined, grid: { color: "rgba(148,163,184,.10)" }, ticks: xTicks },
+      y: { stacked: opts.stacked, title: opts.yTitle ? { display: true, text: opts.yTitle } : undefined, grid: { color: "rgba(148,163,184,.10)" }, ticks: yTicks },
     },
   };
 }
