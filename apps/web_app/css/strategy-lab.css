@@ -374,6 +374,75 @@
   font-size: 11px;
 }
 
+.strategy-toolbar-field select option,
+.strategy-form-field select option,
+.strategy-results-toggle-group select option {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.strategy-custom-select {
+  position: relative;
+  width: 100%;
+}
+.strategy-custom-select-trigger {
+  min-width: 120px;
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+.strategy-custom-select-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.strategy-custom-select-menu.hidden {
+  display: none;
+}
+.strategy-custom-select-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 1px solid var(--panel-border);
+}
+.strategy-custom-select-item:last-child {
+  border-bottom: none;
+}
+.strategy-custom-select-item:hover {
+  background: var(--panel-soft);
+}
+.strategy-custom-select-item button {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 14px;
+}
+.strategy-custom-select-item button:hover {
+  color: var(--opt-red);
+}
+
 .strategy-main-grid {
   flex: 1;
   display: grid;

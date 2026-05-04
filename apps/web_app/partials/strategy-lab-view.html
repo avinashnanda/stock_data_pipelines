@@ -130,18 +130,26 @@
               style="padding-top: 16px; border-top: 1px solid var(--border);">
               <div class="strategy-toolbar-field">
                 <label for="strategy-list">Saved Strategies</label>
-                <select id="strategy-list">
-                  <option value="">No saved strategies yet</option>
-                </select>
+                <div class="strategy-custom-select" id="custom-strategy-list">
+                  <div class="strategy-custom-select-trigger" id="custom-strategy-list-trigger" onclick="document.getElementById('custom-strategy-list-menu').classList.toggle('hidden')">
+                    <span>No saved strategies yet</span>
+                    <span class="chevron" style="color:var(--muted)">▼</span>
+                  </div>
+                  <div class="strategy-custom-select-menu hidden" id="custom-strategy-list-menu"></div>
+                </div>
               </div>
             </div>
 
             <div class="strategy-sidebar-section strategy-opt-sec">
               <div class="strategy-toolbar-field">
                 <label for="strategy-backtests-list">Recent Backtests</label>
-                <select id="strategy-backtests-list">
-                  <option value="">No backtests saved yet</option>
-                </select>
+                <div class="strategy-custom-select" id="custom-strategy-backtests-list">
+                  <div class="strategy-custom-select-trigger" id="custom-strategy-backtests-list-trigger" onclick="document.getElementById('custom-strategy-backtests-menu').classList.toggle('hidden')">
+                    <span>No backtests saved yet</span>
+                    <span class="chevron" style="color:var(--muted)">▼</span>
+                  </div>
+                  <div class="strategy-custom-select-menu hidden" id="custom-strategy-backtests-menu"></div>
+                </div>
               </div>
             </div>
           </aside>
@@ -430,7 +438,7 @@
               <button type="button" class="strategy-primary-tab" data-strategy-primary-tab="compare">Compare</button>
             </div>
             <span id="strategy-opt-runs-badge" class="strategy-opt-badge purple">512 runs</span>
-            <span id="strategy-opt-loaded-chip" class="strategy-opt-badge green">NSE:RELIANCE · Simple SMA Cross</span>
+            <span id="strategy-opt-loaded-chip" class="strategy-opt-badge green">NSE:RELIANCE Ã‚Â· Simple SMA Cross</span>
             <div class="strategy-opt-spacer"></div>
             <div class="strategy-opt-pills">
               <button type="button" class="active" data-opt-section="results">Results</button>
@@ -529,7 +537,7 @@
                   </select>
                 </div>
                 <input id="strategy-opt-custom-formula" class="strategy-formula-input" type="text"
-                  value="0.5 · sharpe + 0.3 · ret - 0.2 · dd" style="margin-top: 8px;" />
+                  value="0.5 Ã‚Â· sharpe + 0.3 Ã‚Â· ret - 0.2 Ã‚Â· dd" style="margin-top: 8px;" />
               </div>
 
               <div class="strategy-opt-sec">
@@ -579,7 +587,7 @@
                 </section>
                 <section class="strategy-optimization-card">
                   <div class="strategy-optimization-card-header">
-                    <h4>Return vs drawdown · Pareto</h4><span class="strategy-optimization-meta">Click to select</span>
+                    <h4>Return vs drawdown Ã‚Â· Pareto</h4><span class="strategy-optimization-meta">Click to select</span>
                   </div>
                   <div class="strategy-chart-canvas-wrap"><canvas id="strategy-optimization-scatter-chart"></canvas>
                   </div>
@@ -591,7 +599,7 @@
 
               <section class="strategy-optimization-card" data-opt-anchor="results">
                 <div class="strategy-optimization-card-header">
-                  <h4>Equity curve overlay · top 5 runs</h4><span class="strategy-optimization-meta">Dashed = buy and
+                  <h4>Equity curve overlay Ã‚Â· top 5 runs</h4><span class="strategy-optimization-meta">Dashed = buy and
                     hold baseline</span>
                 </div>
                 <div class="strategy-chart-canvas-wrap strategy-equity-overlay-wrap"><canvas
@@ -677,7 +685,7 @@
               <section class="strategy-optimization-card" data-opt-anchor="walkforward">
                 <div class="strategy-optimization-card-header">
                   <h4>Overfitting detection</h4>
-                  <span class="strategy-optimization-meta">Top runs — in-sample vs out-of-sample return gap</span>
+                  <span class="strategy-optimization-meta">Top runs Ã¢â‚¬â€ in-sample vs out-of-sample return gap</span>
                 </div>
                 <div id="strategy-overfit-panel" class="strategy-overfit-panel"></div>
               </section>

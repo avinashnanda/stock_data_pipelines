@@ -117,6 +117,15 @@ function updateOptimizationExecutionHints() {
 }
 
 function _bindStrategyLabEvents() {
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#custom-strategy-list')) {
+      $("custom-strategy-list-menu")?.classList.add('hidden');
+    }
+    if (!e.target.closest('#custom-strategy-backtests-list')) {
+      $("custom-strategy-backtests-menu")?.classList.add('hidden');
+    }
+  });
+
   document.querySelectorAll("[data-strategy-primary-tab]").forEach((button) => {
     button.addEventListener("click", () => switchStrategyPrimaryTab(button.dataset.strategyPrimaryTab));
   });
@@ -870,50 +879,93 @@ async function refreshPaperSessions() {
 }
 
 function renderStrategyList(items) {
-  const node = $("strategy-list");
-  if (!node) return;
+  const trigger = $("custom-strategy-list-trigger");
+  const menu = $("custom-strategy-list-menu");
+  if (!trigger || !menu) return;
 
   if (!items || !items.length) {
-    node.innerHTML = `<option value="">No saved strategies yet</option>`;
+    trigger.firstElementChild.textContent = "No saved strategies yet";
+    menu.innerHTML = `<div class="strategy-custom-select-item" style="color:var(--muted)">No saved strategies yet</div>`;
     return;
   }
+  
+  const selectedItem = items.find(i => i.id === _strategySelectedId);
+  trigger.firstElementChild.textContent = selectedItem ? selectedItem.name : "-- Select Strategy --";
 
-  node.innerHTML = `<option value="">-- Select Strategy --</option>` + items.map((item) => {
-    const text = escapeStrategyHtml(item.name || "Untitled Strategy");
-    const isSelected = item.id === _strategySelectedId ? "selected" : "";
-    return `<option value="${escapeStrategyHtml(item.id)}" ${isSelected}>${text}</option>`;
-  }).join("");
+  menu.innerHTML = `<div class="strategy-custom-select-item" data-value="">-- Select Strategy --</div>` + items.map(item => `
+    <div class="strategy-custom-select-item" data-value="${escapeStrategyHtml(item.id)}">
+      <span class="strategy-item-name">${escapeStrategyHtml(item.name || "Untitled Strategy")}</span>
+      <button class="strategy-item-delete" data-id="${escapeStrategyHtml(item.id)}" title="Delete">×</button>
+    </div>
+  `).join("");
 
-  const newSelect = node.cloneNode(true);
-  node.parentNode.replaceChild(newSelect, node);
-  newSelect.addEventListener("change", (e) => {
-    if (e.target.value !== "") {
-      loadStrategyIntoForm(e.target.value).catch(err => _appendStrategyLog(`Load failed: ${err.message}`));
-    }
+  const newMenu = menu.cloneNode(true);
+  menu.parentNode.replaceChild(newMenu, menu);
+  
+  newMenu.querySelectorAll('.strategy-custom-select-item').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.strategy-item-delete')) {
+        e.stopPropagation();
+        const id = e.target.closest('.strategy-item-delete').dataset.id;
+        deleteStrategy(id).catch(err => _appendStrategyLog(`Delete failed: ${err.message}`));
+        return;
+      }
+      const val = el.dataset.value;
+      if (val !== undefined && val !== "") {
+        trigger.firstElementChild.textContent = el.querySelector('.strategy-item-name') ? el.querySelector('.strategy-item-name').textContent : "-- Select Strategy --";
+        loadStrategyIntoForm(val).catch(err => _appendStrategyLog(`Load failed: ${err.message}`));
+      }
+      newMenu.classList.add('hidden');
+    });
   });
 }
 
 function renderBacktestHistory(items) {
-  const node = $("strategy-backtests-list");
-  if (!node) return;
+  const trigger = $("custom-strategy-backtests-list-trigger");
+  const menu = $("custom-strategy-backtests-menu");
+  if (!trigger || !menu) return;
 
   if (!items || !items.length) {
-    node.innerHTML = `<option value="">No backtests saved yet</option>`;
+    trigger.firstElementChild.textContent = "No backtests saved yet";
+    menu.innerHTML = `<div class="strategy-custom-select-item" style="color:var(--muted)">No backtests saved yet</div>`;
     return;
   }
+  
+  const selectedItem = items.find(i => i.run_id === _strategySelectedRunId);
+  if (selectedItem) {
+    trigger.firstElementChild.textContent = `${selectedItem.strategy_name || "Backtest"} (${selectedItem.symbol || "--"})`;
+  } else {
+    trigger.firstElementChild.textContent = "-- Select Backtest --";
+  }
 
-  node.innerHTML = `<option value="">-- Select Backtest --</option>` + items.map((item) => {
+  menu.innerHTML = `<div class="strategy-custom-select-item" data-value="">-- Select Backtest --</div>` + items.map((item) => {
     const text = `${item.strategy_name || "Backtest"} (${item.symbol || "--"} - ${formatStrategyMetric(item.metrics?.return_pct, "%")})`;
-    const isSelected = item.run_id === _strategySelectedRunId ? "selected" : "";
-    return `<option value="${escapeStrategyHtml(item.run_id)}" ${isSelected}>${text}</option>`;
+    return `
+    <div class="strategy-custom-select-item" data-value="${escapeStrategyHtml(item.run_id)}">
+      <span class="strategy-item-name">${escapeStrategyHtml(text)}</span>
+      <button class="strategy-item-delete" data-id="${escapeStrategyHtml(item.run_id)}" title="Delete">×</button>
+    </div>
+  `;
   }).join("");
 
-  const newSelect = node.cloneNode(true);
-  node.parentNode.replaceChild(newSelect, node);
-  newSelect.addEventListener("change", (e) => {
-    if (e.target.value !== "") {
-      loadBacktestRun(e.target.value).catch(err => _appendStrategyLog(`Backtest load failed: ${err.message}`));
-    }
+  const newMenu = menu.cloneNode(true);
+  menu.parentNode.replaceChild(newMenu, menu);
+  
+  newMenu.querySelectorAll('.strategy-custom-select-item').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.strategy-item-delete')) {
+        e.stopPropagation();
+        const runId = e.target.closest('.strategy-item-delete').dataset.id;
+        deleteBacktestRun(runId).catch(err => _appendStrategyLog(`Delete failed: ${err.message}`));
+        return;
+      }
+      const val = el.dataset.value;
+      if (val !== undefined && val !== "") {
+        trigger.firstElementChild.textContent = el.querySelector('.strategy-item-name') ? el.querySelector('.strategy-item-name').textContent : "-- Select Backtest --";
+        loadBacktestRun(val).catch(err => _appendStrategyLog(`Load failed: ${err.message}`));
+      }
+      newMenu.classList.add('hidden');
+    });
   });
 }
 
