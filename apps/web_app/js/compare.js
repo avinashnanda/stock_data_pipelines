@@ -203,13 +203,17 @@ function renderComparePerformance(content, strategies) {
       ${chartCard("cmp-annual-bars", "Year-by-year return breakdown")}
       ${chartCard("cmp-profit-factor", "Profit factor and expectancy")}
     </div>
-    ${heatmapShell("cmp-annual-heatmap", "Annual returns heatmap")}
+    <div class="strategy-compare-grid two">
+      ${heatmapShell("cmp-annual-heatmap", "Annual returns heatmap")}
+      ${heatmapShell("cmp-seasonality-heatmap", "Average Monthly Seasonality")}
+    </div>
     ${tableShell("cmp-performance-table", "Return and trade statistics")}
   `;
   const years = unionLabels(strategies.map((s) => Object.keys(s.annual)));
   groupedBar("cmp-annual-bars", years, strategies, (s) => years.map((y) => s.annual[y] ?? null));
   groupedBar("cmp-profit-factor", ["Profit Factor", "Expectancy", "Avg Win/Loss"], strategies, (s) => [s.metrics.profitFactor, s.metrics.expectancy, s.metrics.winLossRatio]);
   renderHeatmap("cmp-annual-heatmap", strategies.map((s) => s.name), years, (row, col) => strategies[row].annual[years[col]]);
+  renderHeatmap("cmp-seasonality-heatmap", strategies.map((s) => s.name), ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], (row, col) => strategies[row].monthlySeasonality[col]);
   renderSimpleTable("cmp-performance-table", ["Strategy", "Total Return", "CAGR", "Trades", "Win Rate", "Profit Factor", "Expectancy", "Avg W/L"], strategies.map((s) => [s.name, pct(s.metrics.totalReturn), pct(s.metrics.cagr), s.metrics.totalTrades, pct(s.metrics.winRate), num(s.metrics.profitFactor), money(s.metrics.expectancy), num(s.metrics.winLossRatio)]));
 }
 
@@ -219,17 +223,17 @@ function renderCompareRisk(content, strategies) {
       ${chartCard("cmp-underwater", "Drawdown underwater")}
       ${chartCard("cmp-rolling-sharpe", "Rolling Sharpe - 90 periods")}
       ${chartCard("cmp-rolling-vol", "Rolling Volatility - 90 periods")}
+      ${chartCard("cmp-rolling-corr", "Rolling Correlation - 90 periods")}
       ${chartCard("cmp-var-cvar", "VaR & CVaR")}
-    </div>
-    <div class="strategy-compare-grid two">
       ${chartCard("cmp-ulcer", "Ulcer Index")}
-      ${tableShell("cmp-dd-duration", "Drawdown duration")}
     </div>
+    ${tableShell("cmp-dd-duration", "Drawdown duration")}
   `;
   const labels = unionLabels(strategies.map((s) => s.drawdown.map((p) => p.time)));
   lineChart("cmp-underwater", labels, strategies.map((s) => ({ ...lineDataset(s.name, alignSeries(s.drawdown, labels, "drawdown"), getCompareColor(s.id)), backgroundColor: hexToRgba(getCompareColor(s.id), 0.12), fill: true })));
   lineChart("cmp-rolling-sharpe", labels, strategies.map((s) => lineDataset(s.name, alignSeries(s.rollingSharpe, labels, "value"), getCompareColor(s.id))));
   lineChart("cmp-rolling-vol", labels, strategies.map((s) => lineDataset(s.name, alignSeries(s.rollingVol, labels, "value"), getCompareColor(s.id))));
+  lineChart("cmp-rolling-corr", labels, strategies.map((s) => lineDataset(s.name, alignSeries(s.rollingCorr, labels, "value"), getCompareColor(s.id))));
   groupedBar("cmp-var-cvar", ["VaR 95", "CVaR 95", "VaR 99", "CVaR 99"], strategies, (s) => [s.varCvar.var95, s.varCvar.cvar95, s.varCvar.var99, s.varCvar.cvar99]);
   barChart("cmp-ulcer", strategies.map((s) => s.name), [{ label: "Ulcer Index", data: strategies.map((s) => s.metrics.ulcerIndex), backgroundColor: strategies.map((s) => getCompareColor(s.id)) }]);
   renderSimpleTable("cmp-dd-duration", ["Strategy", "Max Drawdown", "Longest DD", "Current DD"], strategies.map((s) => [s.name, pct(s.metrics.maxDrawdown), `${s.metrics.maxDrawdownDuration} periods`, pct(lastValue(s.drawdown, "drawdown"))]));
@@ -317,7 +321,10 @@ function renderCompareTrades(content, strategies) {
       </div>
       <div class="strategy-table-shell"><table class="strategy-results-table strategy-compare-trade-table"><thead><tr>${["Strategy","Symbol","Direction","Entry Date","Entry Price","Exit Date","Exit Price","Duration","P&L ($)","Return (%)","MFE","MAE","Efficiency"].map((h) => `<th data-trade-sort="${escapeStrategyHtml(h)}">${escapeStrategyHtml(h)}</th>`).join("")}</tr></thead><tbody id="cmp-trade-log"></tbody></table></div>
     </section>
+    ${chartCard("cmp-trade-equity", "Cumulative Return by Trade", "wide")}
     <div class="strategy-compare-grid two">
+      ${chartCard("cmp-traders-eq", "Trader's Equation (Win Rate vs R:R)")}
+      ${chartCard("cmp-dur-pnl", "Duration vs Trade Return %")}
       ${chartCard("cmp-mfe-mae", "MFE vs MAE")}
       ${chartCard("cmp-eff", "Entry & exit efficiency")}
       ${heatmapShell("cmp-dow", "Day-of-week performance")}
@@ -330,6 +337,30 @@ function renderCompareTrades(content, strategies) {
   bindTradeFilters();
   const trades = getFilteredCompareTrades(strategies);
   renderTradeLog(trades);
+
+  const maxTrades = Math.max(...strategies.map(s => s.trades.length), 1);
+  const tradeLabels = Array.from({length: maxTrades + 1}, (_, i) => i);
+  lineChart("cmp-trade-equity", tradeLabels, strategies.map(s => {
+    let cum = 0;
+    const data = [0];
+    s.trades.forEach(t => { cum += t.returnPct; data.push(cum); });
+    return lineDataset(s.name, data, getCompareColor(s.id));
+  }), { xTitle: "Trade Sequence", yTitle: "Cumulative Trade Return %" });
+
+  const breakeven = [];
+  for (let wr = 10; wr <= 90; wr += 5) breakeven.push({ x: wr, y: (100 / wr) - 1 });
+  chart("cmp-traders-eq", {
+    type: "scatter",
+    data: {
+      datasets: [
+        ...strategies.map((s) => ({ label: s.name, data: [{ x: s.metrics.winRate, y: s.metrics.winLossRatio }], backgroundColor: getCompareColor(s.id), pointRadius: 6 })),
+        { label: "Break-Even", data: breakeven, type: "line", borderColor: "#6b7280", borderDash: [6, 5], pointRadius: 0, fill: false }
+      ]
+    },
+    options: baseChartOptions({ xTitle: "Win Rate %", yTitle: "Reward / Risk Ratio" })
+  });
+  
+  chart("cmp-dur-pnl", { type: "scatter", data: { datasets: strategies.map((s) => ({ label: s.name, data: trades.filter((t) => t.strategyId === s.id).map((t) => ({ x: t.duration, y: t.returnPct })), backgroundColor: getCompareColor(s.id), pointRadius: 4 })) }, options: baseChartOptions({ xTitle: "Holding Period (Bars)", yTitle: "Trade Return %" }) });
   chart("cmp-mfe-mae", { type: "scatter", data: { datasets: strategies.map((s) => ({ label: s.name, data: trades.filter((t) => t.strategyId === s.id).map((t) => ({ x: t.maePct, y: t.mfePct })), backgroundColor: getCompareColor(s.id), pointRadius: 4 })) }, options: baseChartOptions({ xTitle: "MAE %", yTitle: "MFE %" }) });
   groupedBar("cmp-eff", ["Entry", "Exit"], strategies, (s) => [s.metrics.entryEfficiency, s.metrics.exitEfficiency]);
   renderHeatmap("cmp-dow", strategies.map((s) => s.name), ["Mon", "Tue", "Wed", "Thu", "Fri"], (r, c) => avg(strategies[r].trades.filter((t) => new Date(t.entryDate).getDay() === c + 1).map((t) => t.pnl)));
@@ -527,8 +558,10 @@ function buildCompareStrategyFromResult(id, name, result, item = {}) {
   const drawdown = buildDrawdown(equity);
   const metrics = computeCompareMetrics(result.metrics || item.metrics || {}, equity, trades, returns, benchmarkReturns, drawdown);
   const annual = computeAnnualReturns(equity);
+  const monthlySeasonality = computeMonthlySeasonality(equity);
   const rollingSharpe = rollingMetric(equity, returns, 90, (slice) => sharpeRatio(slice));
   const rollingVol = rollingMetric(equity, returns, 90, (slice) => volatilityPct(slice));
+  const rollingCorr = rollingMetricPair(equity, returns, benchmarkReturns, 90, correlation);
   const varCvar = computeVarCvar(returns);
   const regimes = computeRegimeReturns(equity, returns, benchmarkReturns);
   const stress = computeStressReturns(equity);
@@ -544,8 +577,10 @@ function buildCompareStrategyFromResult(id, name, result, item = {}) {
     drawdown,
     metrics,
     annual,
+    monthlySeasonality,
     rollingSharpe,
     rollingVol,
+    rollingCorr,
     varCvar,
     regimes,
     stress,
@@ -660,6 +695,28 @@ function computeAnnualReturns(equity) {
     years[year].end = point.equity;
   });
   return Object.fromEntries(Object.entries(years).map(([year, v]) => [year, v.start ? ((v.end / v.start) - 1) * 100 : 0]));
+}
+
+function computeMonthlySeasonality(equity) {
+  const months = Array.from({length: 12}, () => []);
+  let lastMonth = -1;
+  let startEquity = equity[0]?.equity;
+  for (let i = 1; i < equity.length; i++) {
+    const point = equity[i];
+    const date = new Date(point.time);
+    if (Number.isNaN(date.getTime())) continue;
+    const m = date.getMonth();
+    if (lastMonth === -1) lastMonth = m;
+    if (m !== lastMonth) {
+      if (startEquity) months[lastMonth].push(((equity[i-1].equity / startEquity) - 1) * 100);
+      startEquity = equity[i-1].equity;
+      lastMonth = m;
+    }
+  }
+  if (lastMonth !== -1 && startEquity && equity.length > 1) {
+    months[lastMonth].push(((equity[equity.length - 1].equity / startEquity) - 1) * 100);
+  }
+  return months.map(vals => vals.length ? avg(vals) : null);
 }
 
 function buildDrawdown(equity) {
@@ -1080,6 +1137,14 @@ function rollingMetric(equity, returns, windowSize, fn) {
   return equity.slice(1).map((p, index) => {
     const start = Math.max(0, index - windowSize + 1);
     return { time: p.time, value: fn(returns.slice(start, index + 1)) };
+  });
+}
+
+function rollingMetricPair(equity, a, b, windowSize, fn) {
+  if (a.length !== b.length) return [];
+  return equity.slice(1).map((p, index) => {
+    const start = Math.max(0, index - windowSize + 1);
+    return { time: p.time, value: fn(a.slice(start, index + 1), b.slice(start, index + 1)) };
   });
 }
 
